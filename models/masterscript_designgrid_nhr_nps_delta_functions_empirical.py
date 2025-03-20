@@ -5,7 +5,7 @@ import bayesflow as bf
 import numpy as np
 import math
 import os
-import pickle
+import re
 import sys
 import pandas as pd
 import seaborn as sns
@@ -34,6 +34,25 @@ from keras.utils import to_categorical
 #     details = tf.config.experimental.get_device_details(gpus[0])
 #     print("GPU details: ", details)
 
+# def find_condition_folder(directory, condition_number):
+#     # Create a regular expression pattern to match folder names with 'condition' followed by a number
+#     pattern = re.compile(rf'condition{condition_number}')
+    
+#     # List all folders in the specified directory
+#     for folder_name in os.listdir(directory):
+#         folder_path = os.path.join(directory, folder_name)
+        
+#         # Check if it's a directory and matches the pattern
+#         if os.path.isdir(folder_path) and pattern.search(folder_name):
+#             return folder_name  # Return the matching folder name
+
+#     # If no matching folder is found
+#     return None
+
+# os.listdir('~/BF-LIGHT')
+
+
+home_folder = 'BF-LIGHT'
 myhost = os.uname()[1]
 
 RNG = np.random.default_rng(2023)
@@ -49,10 +68,10 @@ if myhost != 'psyml201':
     model_title = "dmc_"+ str(arguments[0]) + 'design_grid' + str(design_grid_num)+ '_condition' + str(index)
     design_grid_dir = '/data/design_grid' + str(design_grid_num) + '.csv'
 else:
-    index = 526 #526
+    index = 496 #526
     design_grid_num = 6
     slurm_id = 'PC'
-    model_title = "dmc_603210design_grid6_condition526" # dmc_603210design_grid6_condition526
+    # model_title = "test" # dmc_603210design_grid6_condition526
     design_grid_num = 6
     # model_title = 'dmc_418664design_grid6_condition54'
 
@@ -60,7 +79,7 @@ else:
     design_grid_dir = '/data/design_grid' + str(design_grid_num) + '.csv'
 
 model_info = {
-    'model_title': model_title,
+    'model_title': None,
     'link_function': None, # choose 'normal cdf' to transform normals to uniform priors
     'normal_restriction': 'positive only',
     'model': 'dmc',
@@ -125,8 +144,9 @@ if myhost == 'psyml201':
         parent_dir = os.path.dirname(script_dir)
 else:
 
-    parent_dir = os.getcwd() + '/BF-DMC-NEW'
+    parent_dir = os.getcwd() + '/' + home_folder
 
+print('parent_dir = '+parent_dir)
 
 if model_info['load_pretrained']:
     # model titles
@@ -176,10 +196,10 @@ if myhost == 'psyml201':
 else:
     def find_directories(mkdir = True):
 
-        script_dir = os.getcwd() + '/BF-DMC-NEW/models'
+        script_dir = os.getcwd() + '/' + home_folder + '/models'
 
         # modify parent distribution (on Mogon)
-        parent_dir = os.getcwd() + '/BF-DMC-NEW'
+        parent_dir = os.getcwd() + '/' + home_folder
 
 
         model_dir = parent_dir+"/networks/"+ model_title+"/"
@@ -215,7 +235,7 @@ print('functions_dir = '+functions_dir)
 print('model_data_dir = '+model_data_dir)
 print('model_dir = '+model_dir)
 print('design_grid_dir = '+design_grid_dir)
-
+print('design_grid_dir = '+model_info['model_title'])
 ## read design grid
 
 design_grid = pd.read_csv(parent_dir+model_info['dir_design_grid'], index_col=0)
