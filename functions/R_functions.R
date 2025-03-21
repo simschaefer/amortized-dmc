@@ -1,6 +1,8 @@
 require(tidyverse)
 
 
+
+
 convert_prms <- function(named_values,
                          sigma_old = 4,
                          sigma_new = 1,
@@ -334,4 +336,39 @@ check_conditions <- function(data){
   
   return(all_conds[!all_conds %in% conds])
   
+}
+
+
+
+convert_fits <- function(data_fits){
+  
+drdm_estimates <- coef(data_fits) %>% 
+  as_tibble()
+
+estimate_list <- list()
+
+for(i in 1:length(drdm_estimates$ID %>% unique)){
+  
+  values <-  coef(data_fits)[i,2:8] %>% as.numeric()
+  
+  names <- names( coef(data_fits)[i,2:8])
+  
+  names(values) <- names
+  
+  estimate_list[[i]] <- convert_prms(
+    named_values = values , # the previous parameters
+    sigma_old = 1, # diffusion constants
+    sigma_new = 4,
+    t_from_to = "s->ms" # how shall the time be scaled?
+  )
+  
+  # estimate_list[[i]]['id'] <- coef(data_fits)[i,1]
+  
+}
+drdm_estimates <- estimate_list %>% 
+  bind_rows() %>% 
+  mutate(ID =  coef(data_fits)[,1])
+
+return(drdm_estimates)
+
 }
