@@ -156,7 +156,7 @@ class DMC:
         mu_c: float, 
         t0: float, 
         b: float, 
-        min_num_obs: int = 50, 
+        min_num_obs: int = 50,
         max_num_obs: int = 500
     ):
         """
@@ -205,4 +205,33 @@ class DMC:
             A=-A, tau=tau, mu_c=mu_c, t0=t0, b=b, t=t, noise=noise[obs_per_condition:]
         )
 
-        return dict(data=data, conditions=conditions, num_obs=num_obs)
+        return dict(rt=data[:, 0], accuracy=data[:, 1], conditions=conditions, num_obs=num_obs)
+
+    def sample(self, batch_size, **kwargs) -> dict[str, np.ndarray]:
+        """Runs simulated benchmark and returns `batch_size` parameter
+        and observation batches
+
+        Parameters
+        ----------
+        batch_shape: tuple
+            Number of parameter-observation batches to simulate.
+
+        Returns
+        -------
+        dict[str, np.ndarray]: simulated parameters and observables
+            with shapes (`batch_size`, ...)
+        """
+
+        sims = [self() for _ in range(batch_size)]
+        sims = {k: np.stack([s[k] for s in sims], axis=0) for k in sims[0].keys()}
+
+        # Ensure eveything has a trailing dimension of 1 (so its concateneable)
+        sims = {k: v[..., np.newaxis] for k, v in sims.items()}
+        return sims
+
+    def __call__(self, **kwargs):
+        
+        prior_draws = self.prior()
+        sims = self.experiment(**prior_draws)
+        return prior_draws | sims
+
