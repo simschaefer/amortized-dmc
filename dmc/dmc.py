@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.stats import truncnorm
 
-
 class DMC:
     def __init__(
         self,
@@ -15,7 +14,10 @@ class DMC:
         sigma: float = 4.0,
         X0_beta_shape_fixed: int = 3,
         a_value: int = 2,
-        num_conditions: int = 2
+        num_conditions: int = 2,
+        contamination_probability: float | None = None,
+        contamination_uniform_lower: float = 0,
+        contamination_uniform_upper: float = 2
     ):
         """
         Initialize the DMC simulator ina  BayesFlow-friendly format.
@@ -44,6 +46,12 @@ class DMC:
             Constant 'a' value used in the simulation. Default is 2.
         num_conditions : int, optional
             The number of conditions in the experiment. Default is 2.
+        contamination_probability :
+            Rate of contamination during robust training. 
+        contamination_uniform_lower:
+            lower bound of random RTs used in robust training.
+        contamination_uniform_upper:
+            upper bound of random RTs used in robust training.
         """
 
         self.num_obs = num_obs
@@ -57,6 +65,9 @@ class DMC:
         self.X0_beta_shape_fixed = X0_beta_shape_fixed
         self.a_value = a_value
         self.num_conditions = num_conditions
+        self.contamination_probability = contamination_probability
+        self.contamination_uniform_lower = contamination_uniform_lower
+        self.contamination_uniform_upper = contamination_uniform_upper
 
         if num_conditions != 2:
             raise ValueError("Number of conditions must be 2 for this experiment.")
@@ -178,6 +189,7 @@ class DMC:
             The minimum number of observations if num_obs not available.
         max_num_obs : int
             The maxmimum number of observations if num_obs not available.
+            
 
         Returns
         -------
@@ -187,23 +199,42 @@ class DMC:
             indicating the conditions; num_obs - an int indicating the number of trials.
         """
         
+        # random number of trials
         num_obs = self.num_obs or np.random.randint(min_num_obs, max_num_obs+1)
         
+        # congruency conditions (equal split)
         obs_per_condition = int(np.ceil(num_obs / self.num_conditions))
         conditions = np.repeat(np.arange(self.num_conditions), obs_per_condition)
-    
-        t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
 
+        # precompute vector of time steps and 2D-noise
+        t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
         noise = np.random.normal(size=(num_obs, self.tmax))
         
         data = np.zeros((num_obs, 2))
         
+        # simulate CONGRUENT trials (positive Amplitude A)
         data[:obs_per_condition] = self.trial(
             A=A, tau=tau, mu_c=mu_c, t0=t0, b=b, t=t, noise=noise[:obs_per_condition]
         )
+        
+        # simulate INCONGRUENT trials (negative Amplitude A)
         data[obs_per_condition:] = self.trial(
             A=-A, tau=tau, mu_c=mu_c, t0=t0, b=b, t=t, noise=noise[obs_per_condition:]
         )
+        
+        # include contamination if probability is specified
+        if self.contamination_probability:
+            
+            # compute binomial mask with given contamination probability
+            binom_mask = np.random.binomial(1, p=self.contamination_probability, size=num_obs) == 1
+
+            # replace RTs by uniform samples
+            data[:,0][binom_mask] = np.random.uniform(self.contamination_uniform_lower, 
+                                                      self.contamination_uniform_upper, 
+                                                      size=np.sum(binom_mask))
+
+            # replace responses by random choices
+            data[:,1][binom_mask] = np.random.binomial(1, p=0.5, size=np.sum(binom_mask))
 
         return dict(rt=data[:, 0], accuracy=data[:, 1], conditions=conditions, num_obs=num_obs)
 
