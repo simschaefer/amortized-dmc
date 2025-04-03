@@ -222,6 +222,8 @@ class DMC:
             A=-A, tau=tau, mu_c=mu_c, mu_r=mu_r, b=b, t=t, noise=noise[obs_per_condition:]
         )
         
+        conditions = conditions[:num_obs]
+        
         # include contamination if probability is given
         if self.contamination_probability:
             
