@@ -86,10 +86,10 @@ class DMC:
             a = (self.param_lower_bound - self.prior_means) / self.prior_sds
             b = (np.inf - self.prior_means) / self.prior_sds
             p = truncnorm.rvs(a, b, loc=self.prior_means, scale=self.prior_sds)
-            return dict(A=p[0], tau=p[1], mu_c=p[2], t0=p[3], b=p[4])
+            return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3], b=p[4])
         return np.random.normal(self.prior_means, self.prior_sds)
 
-    def trial(self, A: float, tau: float, mu_c: float, t0: float, b: float, t: np.ndarray, noise: np.ndarray):
+    def trial(self, A: float, tau: float, mu_c: float, mu_r: float, b: float, t: np.ndarray, noise: np.ndarray):
         """
         Simulate multiple DMC trials in parallel.
 
@@ -101,8 +101,8 @@ class DMC:
             Time constant for exponential decay.
         mu_c : float
             Constant drift component.
-        t0 : float
-            Non-decision time (in ms).
+        mu_r : float
+            mean of the non-decision time (in ms).
         b : float
             Decision boundary.
         t : np.ndarray
@@ -152,7 +152,7 @@ class DMC:
         # Fill only for trials that crossed
         idx = np.where(has_crossed)[0]
         crossing_times = t[first_crossing[idx]]
-        rts[idx] = (crossing_times + t0) / 1000  # convert to seconds
+        rts[idx] = (crossing_times + mu_r) / 1000  # convert to seconds
 
         # Determine response type
         resp_hit = X_shift[idx, first_crossing[idx]]
@@ -165,7 +165,7 @@ class DMC:
         A: float, 
         tau: float, 
         mu_c: float, 
-        t0: float, 
+        mu_r: float, 
         b: float, 
         min_num_obs: int = 50,
         max_num_obs: int = 500
@@ -181,8 +181,8 @@ class DMC:
             Time constant for exponential decay.
         mu_c : float
             Constant drift component.
-        t0 : float
-            Non-decision time (in ms).
+        mu_r : float
+            Mean of Non-decision time (in ms).
         b : float
             Decision boundary.
         min_num_obs : int
@@ -214,15 +214,15 @@ class DMC:
         
         # simulate CONGRUENT trials (positive Amplitude A)
         data[:obs_per_condition] = self.trial(
-            A=A, tau=tau, mu_c=mu_c, t0=t0, b=b, t=t, noise=noise[:obs_per_condition]
+            A=A, tau=tau, mu_c=mu_c, mu_r=mu_r, b=b, t=t, noise=noise[:obs_per_condition]
         )
         
         # simulate INCONGRUENT trials (negative Amplitude A)
         data[obs_per_condition:] = self.trial(
-            A=-A, tau=tau, mu_c=mu_c, t0=t0, b=b, t=t, noise=noise[obs_per_condition:]
+            A=-A, tau=tau, mu_c=mu_c, mu_r=mu_r, b=b, t=t, noise=noise[obs_per_condition:]
         )
         
-        # include contamination if probability is specified
+        # include contamination if probability is given
         if self.contamination_probability:
             
             # compute binomial mask with given contamination probability
