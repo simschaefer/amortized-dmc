@@ -60,6 +60,11 @@ parts=samples_complete["participant"].unique()
 
 param_names = ["A", "tau", "mu_c", "mu_r", "b"]
 
+network_plot_folder = "plots/experimental_effects/" + network_name
+
+if not os.path.existis(network_plot_folder):
+    os.makedirs(network_plot_folder)
+
 for i, part in enumerate(parts):
     
     fig, axes = plt.subplots(1,5, figsize=(10,3))
@@ -81,4 +86,4 @@ for i, part in enumerate(parts):
             
     fig.suptitle(str(part))    
     fig.tight_layout()
-    fig.savefig("plots/experimental_effects/experimental_effects_" + network_name + str(part) + ".png")
+    fig.savefig(network_plot_folder + "experimental_effects_" + network_name + str(part) + ".png")
