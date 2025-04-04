@@ -168,7 +168,7 @@ class DMC:
         mu_r: float, 
         b: float, 
         min_num_obs: int = 50,
-        max_num_obs: int = 500
+        max_num_obs: int = 800
     ):
         """
         Simulate multiple DMC trials in parallel.
@@ -254,6 +254,9 @@ class DMC:
         dict[str, np.ndarray]: simulated parameters and observables
             with shapes (`batch_size`, ...)
         """
+        
+        if type(batch_size) == tuple:
+            batch_size = batch_size[0]
 
         sims = [self() for _ in range(batch_size)]
         sims = {k: np.stack([s[k] for s in sims], axis=0) for k in sims[0].keys()}
