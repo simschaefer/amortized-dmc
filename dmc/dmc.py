@@ -258,7 +258,7 @@ class DMC:
         sims = [self() for _ in range(batch_size)]
         sims = {k: np.stack([s[k] for s in sims], axis=0) for k in sims[0].keys()}
 
-        # Ensure eveything has a trailing dimension of 1 (so its concateneable)
+        # Ensure everything has a trailing dimension of 1 (so its concateneable)
         sims = {k: v[..., np.newaxis] for k, v in sims.items()}
         return sims
 
