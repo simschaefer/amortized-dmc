@@ -21,15 +21,15 @@ def format_empirical_data(data):
     return inference_data
 
 
-def fit_empirical_data(data, approximator):
+def fit_empirical_data(data, approximator, id_label="participant"):
 
-    participants=data["participant"].unique()
+    ids=data[id_label].unique()
 
     list_data_samples=[]
 
-    for i, part in enumerate(participants):
+    for i, id in enumerate(ids):
         
-        part_data = data[data["participant"]==part]
+        part_data = data[data[id_label]==id]
         
         part_data = format_empirical_data(part_data)
         
@@ -43,7 +43,7 @@ def fit_empirical_data(data, approximator):
         
         data_samples=pd.DataFrame(samples_2d)
         
-        data_samples["participant"]=part
+        data_samples[id_label]=id
         data_samples["sampling_time"]=sampling_time
         
         list_data_samples.append(data_samples)
@@ -68,3 +68,55 @@ def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sb
     weighted_sum=np.dot(metrics_means, metrics_weights)
     
     return weighted_sum
+
+
+def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "t0", "b"]):
+    
+    # generate random indices for random draws of posterior samples for resimulation
+    random_idx = np.random.choice(np.arange(0,num_resims), size = num_resims)
+
+    # select posterior samples
+    resim_samples = post_sample_data.iloc[random_idx][param_names]
+
+    # adjust number of trials in simulator (should be equal to the number of trials in the empirical data)
+    simulator.num_obs=num_obs
+
+    list_resim_dfs = []
+
+    # resimulate
+    for i in range(num_resims):
+        resim =  simulator.experiment(A=resim_samples["A"].values[i],
+                                tau=resim_samples["tau"].values[i],
+                                mu_c=resim_samples["mu_c"].values[i],
+                                mu_r=resim_samples["t0"].values[i],
+                                b=resim_samples["b"].values[i])
+        
+        resim_df = pd.DataFrame(resim)
+        
+        resim_df["num_resim"] = i
+        resim_df["partricipant"] = part
+        
+        list_resim_dfs.append(pd.DataFrame(resim_df))
+
+    resim_complete = pd.concat(list_resim_dfs)
+    
+    return resim_complete
+
+def delta_functions(data, quantiles = np.arange(0,1, 0.1), 
+                  grouping_labels=["participant", "condition_label"],
+                  rt_var="rt",
+                  congruency_name="condition_label"):
+    
+
+    quantile_data = data.groupby(grouping_labels)[rt_var].quantile(quantiles).reset_index()
+    
+    quantile_data.rename(columns={"level_2": "quantiles"}, inplace=True)
+
+    quantile_data_wide = quantile_data.pivot(index="quantiles", columns=congruency_name, values=rt_var)
+
+    quantile_data_wide["delta"] = quantile_data_wide["incongruent"] - quantile_data_wide["congruent"]
+
+    quantile_data_wide["mean_qu"] = (quantile_data_wide["incongruent"] + quantile_data_wide["congruent"])/2
+
+    return quantile_data_wide
+

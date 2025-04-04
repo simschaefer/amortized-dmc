@@ -222,6 +222,8 @@ class DMC:
             A=-A, tau=tau, mu_c=mu_c, mu_r=mu_r, b=b, t=t, noise=noise[obs_per_condition:]
         )
         
+        conditions = conditions[:num_obs]
+        
         # include contamination if probability is given
         if self.contamination_probability:
             
@@ -256,7 +258,7 @@ class DMC:
         sims = [self() for _ in range(batch_size)]
         sims = {k: np.stack([s[k] for s in sims], axis=0) for k in sims[0].keys()}
 
-        # Ensure eveything has a trailing dimension of 1 (so its concateneable)
+        # Ensure everything has a trailing dimension of 1 (so its concateneable)
         sims = {k: v[..., np.newaxis] for k, v in sims.items()}
         return sims
 
