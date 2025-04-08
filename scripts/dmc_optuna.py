@@ -1,0 +1,115 @@
+import sys
+sys.path.append("../../BayesFlow")
+sys.path.append("../")
+
+import os
+if "KERAS_BACKEND" not in os.environ:
+    # set this to "torch", "tensorflow", or "jax"
+    os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+import pickle
+
+import keras
+
+import optuna
+
+
+import bayesflow as bf
+from dmc import DMC, dmc_helpers
+
+
+network_name = "oos500trials_noco"
+
+
+model_specs = {'prior_means': np.array([16., 111., 0.5, 322., 75.]),
+               'prior_sds': np.array([10., 47., 0.13, 40., 23.]),
+               'tmax': 1500,
+               'num_obs': 500,
+               'network_name': network_name}
+
+
+simulator = DMC(
+    prior_means=model_specs['prior_means'], 
+    prior_sds=model_specs['prior_sds'],
+    tmax=model_specs['tmax'],
+    # contamination_probability=.05,
+    num_obs=model_specs['num_obs']
+)
+
+file_path = '../model_specs/model_specs_' + network_name + '.pickle'
+
+with open(file_path, 'wb') as file:
+    pickle.dump(simulator, file)
+
+
+adapter = (
+bf.adapters.Adapter()
+.convert_dtype("float64", "float32")
+.sqrt("num_obs")
+.concatenate(["A", "tau", "mu_c", "mu_r", "b"], into="inference_variables")
+.concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+.standardize(include="inference_variables")
+.rename("num_obs", "inference_conditions")
+)
+
+
+training_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
+
+with open(training_file_path, 'rb') as file:
+    train_data = pickle.load(file)
+
+    
+val_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
+
+with open(val_file_path, 'rb') as file:
+    val_data = pickle.load(file)
+
+
+def objective(trial, epochs=50):
+
+    # Optimize hyperparameters
+    dropout = trial.suggest_float("dropout", 0.01, 0.3)
+    initial_learning_rate = trial.suggest_float("lr", 1e-4, 1e-3) 
+    num_seeds=trial.suggest_int("num_seeds", 1, 4)
+    depth=trial.suggest_int("depth", 5, 10)
+    batch_size=trial.suggest_int("batch_size", 16, 128)
+
+    embed_dim=trial.suggest_int("embed_dim", 64, 128)
+    
+    # Create inference net 
+    inference_net = bf.networks.CouplingFlow(coupling_kwargs=dict(subnet_kwargs=dict(dropout=dropout)), depth=depth)
+
+    summary_net = bf.networks.SetTransformer(summary_dim=32, num_seeds=num_seeds, dropout=dropout, embed_dim=(embed_dim, embed_dim))
+    
+    
+    workflow = bf.BasicWorkflow(
+        simulator=simulator,
+        adapter=adapter,
+        initial_learning_rate=initial_learning_rate,
+        inference_network=inference_net,
+        summary_network=summary_net,
+        checkpoint_filepath='../data/optuna_checkpoints',
+        checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{depth}_{batch_size}_{embed_dim}',
+        inference_variables=["A", "tau", "mu_c", "mu_r", "b"])
+    
+    history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data)
+    
+    metrics_table=workflow.compute_default_diagnostics(test_data=val_data)
+
+    # compute weighted sum
+    weighted_sum=dmc_helpers.weighted_metric_sum(metrics_table)
+    
+    # loss=np.mean(history.history["val_loss"][-5:])
+        
+    return weighted_sum
+
+
+study = optuna.create_study(direction="minimize")
+
+study.optimize(objective, n_trials=40)
+
+
+trial = study.best_trial
+print("Outcome Metric: {}".format(trial.value))
+print("Best hyperparameters: {}".format(trial.params))
