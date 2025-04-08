@@ -56,14 +56,24 @@ bf.adapters.Adapter()
 
 training_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
-with open(training_file_path, 'rb') as file:
-    train_data = pickle.load(file)
+train_data = simulator.sample(50000)
 
-    
+with open(file_path, 'wb') as file:
+    pickle.dump(train_data, file)
+
+# with open(training_file_path, 'rb') as file:
+#     train_data = pickle.load(file)
+
+
+val_data = simulator.sample(1000)
+
 val_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
-with open(val_file_path, 'rb') as file:
-    val_data = pickle.load(file)
+with open(val_file_path, 'wb') as file:
+    pickle.dump(val_data, file)
+
+# with open(val_file_path, 'rb') as file:
+#     val_data = pickle.load(file)
 
 
 def objective(trial, epochs=50):
@@ -104,12 +114,13 @@ def objective(trial, epochs=50):
         
     return weighted_sum
 
-
 study = optuna.create_study(direction="minimize")
 
-study.optimize(objective, n_trials=40)
-
+study.optimize(objective, n_trials=50)
 
 trial = study.best_trial
 print("Outcome Metric: {}".format(trial.value))
 print("Best hyperparameters: {}".format(trial.params))
+
+with open('../optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
+    pickle.dump(train_data, file)
