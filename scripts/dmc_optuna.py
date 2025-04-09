@@ -5,12 +5,12 @@ sys.path.append("../")
 import os
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1" 
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1" 
 
 import torch 
 
 print("CUDA available:", torch.cuda.is_available())
-print(torch.cuda.device_count())
+# print(torch.cuda.device_count())
 
 # torch.cuda.device_count.cache_clear()
 
