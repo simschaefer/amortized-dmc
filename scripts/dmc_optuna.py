@@ -37,8 +37,8 @@ from dmc import DMC, weighted_metric_sum
 
 
 network_name = "oos500trials_noco"
-n_trials = 1
-n_epochs = 1
+n_trials = 5
+n_epochs = 10
 
 
 model_specs = {'prior_means': np.array([16., 111., 0.5, 322., 75.]),
@@ -141,5 +141,5 @@ trial = study.best_trial
 print("Outcome Metric: {}".format(trial.value))
 print("Best hyperparameters: {}".format(trial.params))
 
-with open('../optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
+with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
     pickle.dump(train_data, file)
