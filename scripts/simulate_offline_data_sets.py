@@ -17,7 +17,12 @@ import optuna
 
 import bayesflow as bf
 
-sys.append('../dmc')
+## add functions direction
+dmc_module_dir = os.getcwd() + '/bf_dmc/dmc'
+
+print(dmc_module_dir)
+
+sys.path.append(dmc_module_dir)
 
 from dmc import DMC, dmc_helpers
 
