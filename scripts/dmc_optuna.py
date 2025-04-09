@@ -24,7 +24,7 @@ print(dmc_module_dir)
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC, dmc_helpers
+from dmc import DMC, weighted_metric_sum
 
 
 
@@ -119,7 +119,7 @@ def objective(trial, epochs=n_epochs):
     metrics_table=workflow.compute_default_diagnostics(test_data=val_data)
 
     # compute weighted sum
-    weighted_sum=dmc_helpers.weighted_metric_sum(metrics_table)
+    weighted_sum = weighted_metric_sum(metrics_table)
     
     # loss=np.mean(history.history["val_loss"][-5:])
         

@@ -1,1 +1,2 @@
-from .dmc import DMC
+from .dmc import DMC, weighted_metric_sum
+
