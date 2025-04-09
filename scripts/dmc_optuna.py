@@ -17,13 +17,15 @@ import optuna
 
 import bayesflow as bf
 
-dmc_module_dir = os.getcwd() + '/bf_dmc/dmc'
+parent_dir = os.getcwd()
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
 print(dmc_module_dir)
 
 sys.path.append(dmc_module_dir)
 
 from dmc import DMC, dmc_helpers
+
 
 
 network_name = "oos500trials_noco"
