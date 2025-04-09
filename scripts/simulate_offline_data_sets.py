@@ -24,7 +24,7 @@ print(dmc_module_dir)
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC, dmc_helpers
+from dmc import DMC
 
 
 network_name = "oos500trials_noco"
