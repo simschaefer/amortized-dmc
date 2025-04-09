@@ -57,7 +57,7 @@ training_file_path = '../data/data_offline_training/data_offline_training_' + ne
 
 train_data = simulator.sample(50000)
 
-with open(file_path, 'wb') as file:
+with open(training_file_path, 'wb') as file:
     pickle.dump(train_data, file)
 
 
