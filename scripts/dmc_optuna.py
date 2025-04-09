@@ -20,7 +20,8 @@ import bayesflow as bf
 parent_dir = os.getcwd()
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
-print(dmc_module_dir)
+print(f'parent_dir: {parent_dir}')
+print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
 
@@ -48,7 +49,7 @@ simulator = DMC(
     num_obs=model_specs['num_obs']
 )
 
-file_path = '../model_specs/model_specs_' + network_name + '.pickle'
+file_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 
 with open(file_path, 'wb') as file:
     pickle.dump(model_specs, file)
