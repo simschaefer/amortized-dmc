@@ -16,10 +16,19 @@ import optuna
 
 
 import bayesflow as bf
+
+dmc_module_dir = os.getcwd() + '/bf_dmc/dmc'
+
+print(dmc_module_dir)
+
+sys.path.append(dmc_module_dir)
+
 from dmc import DMC, dmc_helpers
 
 
 network_name = "oos500trials_noco"
+n_trials = 1
+n_epochs = 1
 
 
 model_specs = {'prior_means': np.array([16., 111., 0.5, 322., 75.]),
@@ -40,7 +49,7 @@ simulator = DMC(
 file_path = '../model_specs/model_specs_' + network_name + '.pickle'
 
 with open(file_path, 'wb') as file:
-    pickle.dump(simulator, file)
+    pickle.dump(model_specs, file)
 
 
 adapter = (
@@ -56,27 +65,27 @@ bf.adapters.Adapter()
 
 training_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
-train_data = simulator.sample(50000)
+# train_data = simulator.sample(50000)
 
-with open(file_path, 'wb') as file:
-    pickle.dump(train_data, file)
+# with open(file_path, 'wb') as file:
+#     pickle.dump(train_data, file)
 
-# with open(training_file_path, 'rb') as file:
-#     train_data = pickle.load(file)
+with open(training_file_path, 'rb') as file:
+    train_data = pickle.load(file)
 
 
-val_data = simulator.sample(1000)
+# val_data = simulator.sample(1000)
 
 val_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
-with open(val_file_path, 'wb') as file:
-    pickle.dump(val_data, file)
+# with open(val_file_path, 'wb') as file:
+#     pickle.dump(val_data, file)
 
-# with open(val_file_path, 'rb') as file:
-#     val_data = pickle.load(file)
+with open(val_file_path, 'rb') as file:
+    val_data = pickle.load(file)
 
 
-def objective(trial, epochs=50):
+def objective(trial, epochs=n_epochs):
 
     # Optimize hyperparameters
     dropout = trial.suggest_float("dropout", 0.01, 0.3)
@@ -116,7 +125,7 @@ def objective(trial, epochs=50):
 
 study = optuna.create_study(direction="minimize")
 
-study.optimize(objective, n_trials=50)
+study.optimize(objective, n_trials=n_trials)
 
 trial = study.best_trial
 print("Outcome Metric: {}".format(trial.value))
