@@ -55,7 +55,7 @@ simulator = DMC(
 
 ## simulate Training data
 
-training_file_path = parent_dir + '/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
+training_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
 train_data = simulator.sample(50000)
 
@@ -65,7 +65,7 @@ with open(training_file_path, 'wb') as file:
 
 ## simulate validation data
 
-val_file_path = parent_dir + '/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
+val_file_path = parent_dir + 'bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
 val_data = simulator.sample(1000)
 
