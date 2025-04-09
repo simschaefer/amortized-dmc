@@ -250,7 +250,7 @@ class DMC:
             Number of parameter-observation batches to simulate.
 
         Returns
-        -------
+        -------GHV-QI8
         dict[str, np.ndarray]: simulated parameters and observables
             with shapes (`batch_size`, ...)
         """
