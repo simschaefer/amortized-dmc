@@ -3,6 +3,12 @@ sys.path.append("../../BayesFlow")
 sys.path.append("../")
 
 import os
+import torch
+
+print("CUDA available:", torch.cuda.is_available())
+print("Using device:", torch.cuda.get_device_name(0))
+
+
 if "KERAS_BACKEND" not in os.environ:
     # set this to "torch", "tensorflow", or "jax"
     os.environ["KERAS_BACKEND"] = "torch"
@@ -97,12 +103,12 @@ def objective(trial, epochs=n_epochs):
     depth=trial.suggest_int("depth", 5, 10)
     batch_size=trial.suggest_int("batch_size", 16, 128)
 
-    embed_dim=trial.suggest_int("embed_dim", 64, 128)
+    # embed_dim=trial.suggest_int("embed_dim", 64, 128)
     
     # Create inference net 
     inference_net = bf.networks.CouplingFlow(coupling_kwargs=dict(subnet_kwargs=dict(dropout=dropout)), depth=depth)
 
-    summary_net = bf.networks.SetTransformer(summary_dim=32, num_seeds=num_seeds, dropout=dropout, embed_dim=(embed_dim, embed_dim))
+    summary_net = bf.networks.SetTransformer(summary_dim=32, num_seeds=num_seeds, dropout=dropout)
     
     
     workflow = bf.BasicWorkflow(
