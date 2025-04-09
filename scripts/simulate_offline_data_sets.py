@@ -45,10 +45,10 @@ simulator = DMC(
     num_obs=model_specs['num_obs']
 )
 
-file_path = '../model_specs/model_specs_' + network_name + '.pickle'
+# file_path = '../model_specs/model_specs_' + network_name + '.pickle'
 
-with open(file_path, 'wb') as file:
-    pickle.dump(model_specs, file)
+# with open(file_path, 'wb') as file:
+#     pickle.dump(model_specs, file)
 
 
 ## simulate Training data
