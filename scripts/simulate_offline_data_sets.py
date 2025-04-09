@@ -16,6 +16,9 @@ import optuna
 
 
 import bayesflow as bf
+
+sys.append('../dmc')
+
 from dmc import DMC, dmc_helpers
 
 
