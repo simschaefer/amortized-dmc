@@ -7,7 +7,9 @@ import os
 import torch 
 
 print("CUDA available:", torch.cuda.is_available())
-print("Using device:", torch.cuda.get_device_name(0))
+print(torch.cuda.device_count())
+
+# print("Using device:", torch.cuda.get_device_name(0))
 
 
 if "KERAS_BACKEND" not in os.environ:
