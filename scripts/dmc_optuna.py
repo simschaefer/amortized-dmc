@@ -49,7 +49,7 @@ simulator = DMC(
     num_obs=model_specs['num_obs']
 )
 
-file_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 
 with open(file_path, 'wb') as file:
     pickle.dump(model_specs, file)
@@ -66,7 +66,7 @@ bf.adapters.Adapter()
 )
 
 
-training_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
+training_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
 # train_data = simulator.sample(50000)
 
@@ -79,7 +79,7 @@ with open(training_file_path, 'rb') as file:
 
 # val_data = simulator.sample(1000)
 
-val_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
+val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
 # with open(val_file_path, 'wb') as file:
 #     pickle.dump(val_data, file)
@@ -111,7 +111,7 @@ def objective(trial, epochs=n_epochs):
         initial_learning_rate=initial_learning_rate,
         inference_network=inference_net,
         summary_network=summary_net,
-        checkpoint_filepath='../data/optuna_checkpoints',
+        checkpoint_filepath= parent_dir + '/bf_dmc/data/optuna_checkpoints',
         checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{depth}_{batch_size}_{embed_dim}',
         inference_variables=["A", "tau", "mu_c", "mu_r", "b"])
     
