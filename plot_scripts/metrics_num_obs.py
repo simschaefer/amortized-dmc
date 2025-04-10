@@ -19,7 +19,7 @@ import bayesflow as bf
 from dmc import DMC
 
 
-network_name = 'oos500trials_noco'
+network_name = 'testrun'
 
 file_path = 'model_specs/model_specs_' + network_name + '.pickle'
 

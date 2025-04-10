@@ -19,27 +19,28 @@ from dmc import DMC
 os.getcwd()
 
 #########
-network_name = "dmc_training500trials_oof_priors"
+network_name = "testrun"
 #########
 
-model_specs = {"prior_means": np.array([16., 111., 0.5, 322., 75.]),
-               "prior_sds": np.array([10., 47., 0.13, 40., 23.]),
-               "tmax": 1500,
-               "contamination_probability": None,
-               "dropout": 0.011529815885353391,
-               "learning_rate": 0.0008293769610382236,
-               "num_seeds": 2,
-               "batch_size": 16,
-               "depth": 7,
-               "summary_dim": 32,
-               "embed_dim": 128}
+epochs = 1
+num_batches_per_epoch = 100
 
-simulator = DMC(
-    prior_means=model_specs["prior_means"], 
-    prior_sds=model_specs["prior_sds"],
-    tmax=model_specs["tmax"],
-    contamination_probability=model_specs["contamination_probability"]
-)
+
+model_specs = {"simulation_settings": {"prior_means": np.array([16., 111., 0.5, 322., 75.]),
+                                       "prior_sds": np.array([10., 47., 0.13, 40., 23.]),
+                                       "tmax": 1500,
+                                       "contamination_probability": None,
+                                       "min_num_obs": 50,
+                                       "max_num_obs": 800,
+                                       "num_obs": None},
+"inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.011529815885353391}}, "depth":7},
+"summary_network_settings": {"dropout": 0.011529815885353391,
+                             "num_seeds": 2,
+                             "summary_dim": 32,
+                             "embed_dim": (128, 128)},
+                             'batch_size': 16,
+                             'learning_rate': 0.00083}
+
 
 file_path = 'model_specs/model_specs_' + network_name + '.pickle'
 
@@ -56,15 +57,13 @@ adapter = (
     .rename("num_obs", "inference_conditions")
 )
 
-inference_net = bf.networks.CouplingFlow(coupling_kwargs=dict(subnet_kwargs=dict(dropout=model_specs["dropout"])), depth=model_specs["depth"])
+simulator = DMC(**model_specs['simulation_settings'])
+
+inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
 
 # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
 
-summary_net = bf.networks.SetTransformer(summary_dim=model_specs["summary_dim"], 
-                                         embed_dims = (model_specs["embed_dim"], 
-                                                       model_specs["embed_dim"]),
-                                         num_seeds=model_specs["num_seeds"], 
-                                         dropout=model_specs["dropout"])
+summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
 workflow = bf.BasicWorkflow(
     simulator=simulator,
@@ -102,6 +101,6 @@ with open(val_file_path, 'rb') as file:
 _ = adapter(val_data, strict=True, stage="inference")
 
 
-history = workflow.fit_online(epochs=100, num_batches_per_epoch=1000, batch_size=model_specs["batch_size"], validation_data=val_data)
+history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
 
 # approximator = keras.saving.load_model("../checkpoints/" + network_name)

@@ -8,7 +8,7 @@ class DMC:
         prior_sds: np.ndarray,
         param_names: tuple[str] = ('A', 'tau', 'mu_c', 'mu_r', 'b'),
         param_lower_bound: float | None = 0,
-        num_obs: float | None = 200,
+        fixed_num_obs: float | None = 200,
         tmax: int = 1200,
         dt: float = 1,
         sigma: float = 4.0,
@@ -19,7 +19,7 @@ class DMC:
         contamination_uniform_lower: float = 0,
         contamination_uniform_upper: float = 2,
         min_num_obs: int = 50,
-        max_num_obs: int = 800
+        max_num_obs: int = 800,
     ):
         """
         Initialize the DMC simulator ina  BayesFlow-friendly format.
@@ -34,9 +34,13 @@ class DMC:
             Names of the parameters. Default is ('A', 'tau', 'mu_c', 'mu_r', 'b').
         param_lower_bound : float or None, optional
             Lower bound for the prior.
-        num_obs : float, optional
+        fixed_num_obs : float, optional
             Number of simulated trials. Default is 200. Set to None and specify minimal number of observations (min_num_obs) and
             maximum number of observations (max_num_obs) to include random sampling of trial numbers.
+        min_num_obs:
+            Lower boundary of uniform distribution used to randomly sample trials numbers. Only applied if fixed_num_obs is not None.
+        max_num_obs:
+            Upper boundary of uniform distribution used to randomly sample trials numbers. Only applied if fixed_num_obs is not None.
         tmax : int, optional
             Maximum simulation time in milliseconds. Default is 1200.
         dt : float, optional
@@ -57,7 +61,7 @@ class DMC:
             upper bound of random RTs used in robust training.
         """
 
-        self.num_obs = num_obs
+        self.fixed_num_obs = fixed_num_obs
         self.tmax = tmax
         self.dt = dt
         self.sigma = sigma
@@ -171,7 +175,8 @@ class DMC:
         tau: float, 
         mu_c: float, 
         mu_r: float, 
-        b: float
+        b: float,
+        num_obs: int
     ):
         """
         Simulate multiple DMC trials in parallel.
@@ -203,7 +208,7 @@ class DMC:
         """
         
         # random number of trials
-        num_obs = self.num_obs or np.random.randint(self.min_num_obs, self.max_num_obs+1)
+        # num_obs = self.num_obs or np.random.randint(min_num_obs, max_num_obs+1)
         
         # congruency conditions (equal split)
         obs_per_condition = int(np.ceil(num_obs / self.num_conditions))
@@ -257,20 +262,21 @@ class DMC:
         dict[str, np.ndarray]: simulated parameters and observables
             with shapes (`batch_size`, ...)
         """
+
+        num_obs = self.fixed_num_obs or np.random.randint(self.min_num_obs, self.max_num_obs+1)
         
         if type(batch_size) == tuple:
             batch_size = batch_size[0]
 
-        sims = [self() for _ in range(batch_size)]
+        sims = [self(num_obs) for _ in range(batch_size)]
         sims = {k: np.stack([s[k] for s in sims], axis=0) for k in sims[0].keys()}
 
         # Ensure everything has a trailing dimension of 1 (so its concateneable)
         sims = {k: v[..., np.newaxis] for k, v in sims.items()}
         return sims
 
-    def __call__(self, **kwargs):
+    def __call__(self, num_obs: int | None, **kwargs):
         
         prior_draws = self.prior()
-        sims = self.experiment(**prior_draws)
+        sims = self.experiment(**(prior_draws | {'num_obs':num_obs}))
         return prior_draws | sims
-
