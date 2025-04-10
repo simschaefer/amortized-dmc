@@ -120,3 +120,22 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
 
     return quantile_data_wide
 
+
+
+def subset_data(data, num_obs, keys = ['rt', 'accuracy', 'conditions']):
+
+    data = data.copy()
+
+    max_obs = data[keys[0]].shape[1]
+
+    random_idx = np.random.choice(np.arange(0, max_obs), size=num_obs, replace=False)
+
+    for k in keys:
+        # print(f'{data[k].shape}')
+        data[k] = data[k][:, random_idx, :]
+        # print(f'{data[k].shape}')
+
+
+    data['num_obs'] = np.array([num_obs]*1000).reshape(1000,1)
+
+    return data

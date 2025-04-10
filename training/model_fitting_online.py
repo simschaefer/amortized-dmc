@@ -32,14 +32,15 @@ model_specs = {"simulation_settings": {"prior_means": np.array([16., 111., 0.5, 
                                        "contamination_probability": None,
                                        "min_num_obs": 50,
                                        "max_num_obs": 800,
-                                       "num_obs": None},
+                                       "fixed_num_obs": None},
 "inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.011529815885353391}}, "depth":7},
 "summary_network_settings": {"dropout": 0.011529815885353391,
                              "num_seeds": 2,
                              "summary_dim": 32,
                              "embed_dim": (128, 128)},
                              'batch_size': 16,
-                             'learning_rate': 0.00083}
+                             'learning_rate': 0.00083,
+                             'param_names': ["A", "tau", "mu_c", "mu_r", "b"]}
 
 
 file_path = 'model_specs/model_specs_' + network_name + '.pickle'
@@ -73,7 +74,7 @@ workflow = bf.BasicWorkflow(
     summary_network=summary_net,
     checkpoint_filepath='checkpoints',
     checkpoint_name=network_name,
-    inference_variables=["A", "tau", "mu_c", "mu_r", "b"]
+    inference_variables=model_specs["param_names"]
 )
 
 # file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
@@ -94,8 +95,8 @@ val_data = simulator.sample(200)
 with open(val_file_path, 'wb') as file:
     pickle.dump(val_data, file)
 
-with open(val_file_path, 'rb') as file:
-    val_data = pickle.load(file)
+# with open(val_file_path, 'rb') as file:
+#     val_data = pickle.load(file)
 
 
 _ = adapter(val_data, strict=True, stage="inference")
