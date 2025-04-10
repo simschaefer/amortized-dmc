@@ -83,9 +83,9 @@ def objective(trial, epochs=50):
     initial_learning_rate = trial.suggest_float("lr", 1e-4, 1e-3) 
     num_seeds=trial.suggest_int("num_seeds", 1, 4)
     depth=trial.suggest_int("depth", 5, 10)
-    batch_size=trial.suggest_int("batch_size", 16, 128)
+    batch_size=trial.suggest_categorical("batch_size", [16, 32, 64, 128])
 
-    embed_dim=trial.suggest_int("embed_dim", 64, 128)
+    embed_dim=trial.suggest_categorical("batch_size", [64, 128])
     
     # Create inference net 
     inference_net = bf.networks.CouplingFlow(coupling_kwargs=dict(subnet_kwargs=dict(dropout=dropout)), depth=depth)
