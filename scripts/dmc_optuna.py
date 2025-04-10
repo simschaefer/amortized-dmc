@@ -9,8 +9,8 @@ import os
 
 import torch 
 
-print("CUDA available:", torch.cuda.is_available())
-# print(torch.cuda.device_count())
+print("CUDA available:", torch.cuda.is_available(), flush=True)
+print(torch.cuda.device_count(), flush=True)
 
 # torch.cuda.device_count.cache_clear()
 
@@ -35,7 +35,7 @@ import bayesflow as bf
 parent_dir = os.getcwd()
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
-print(f'parent_dir: {parent_dir}')
+print(f'parent_dir: {parent_dir}', flush=True)
 print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
