@@ -17,7 +17,9 @@ class DMC:
         num_conditions: int = 2,
         contamination_probability: float | None = None,
         contamination_uniform_lower: float = 0,
-        contamination_uniform_upper: float = 2
+        contamination_uniform_upper: float = 2,
+        min_num_obs: int = 50,
+        max_num_obs: int = 800
     ):
         """
         Initialize the DMC simulator ina  BayesFlow-friendly format.
@@ -33,7 +35,8 @@ class DMC:
         param_lower_bound : float or None, optional
             Lower bound for the prior.
         num_obs : float, optional
-            Number of simulated trials. Default is 200.
+            Number of simulated trials. Default is 200. Set to None and specify minimal number of observations (min_num_obs) and
+            maximum number of observations (max_num_obs) to include random sampling of trial numbers.
         tmax : int, optional
             Maximum simulation time in milliseconds. Default is 1200.
         dt : float, optional
@@ -68,6 +71,8 @@ class DMC:
         self.contamination_probability = contamination_probability
         self.contamination_uniform_lower = contamination_uniform_lower
         self.contamination_uniform_upper = contamination_uniform_upper
+        self.min_num_obs = min_num_obs
+        self.max_num_obs = max_num_obs
 
         if num_conditions != 2:
             raise ValueError("Number of conditions must be 2 for this experiment.")
@@ -166,9 +171,7 @@ class DMC:
         tau: float, 
         mu_c: float, 
         mu_r: float, 
-        b: float, 
-        min_num_obs: int = 50,
-        max_num_obs: int = 800
+        b: float
     ):
         """
         Simulate multiple DMC trials in parallel.
@@ -200,7 +203,7 @@ class DMC:
         """
         
         # random number of trials
-        num_obs = self.num_obs or np.random.randint(min_num_obs, max_num_obs+1)
+        num_obs = self.num_obs or np.random.randint(self.min_num_obs, self.max_num_obs+1)
         
         # congruency conditions (equal split)
         obs_per_condition = int(np.ceil(num_obs / self.num_conditions))
