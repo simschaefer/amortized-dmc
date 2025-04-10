@@ -15,7 +15,7 @@ print(torch.cuda.device_count(), flush=True)
 # torch.cuda.device_count.cache_clear()
 
 
-# print("Using device:", torch.cuda.get_device_name(0))
+print("Using device:", torch.cuda.get_device_name(0))
 
 
 if "KERAS_BACKEND" not in os.environ:
@@ -131,7 +131,7 @@ def objective(trial, epochs=n_epochs):
         checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{depth}_{batch_size}_{embed_dim}',
         inference_variables=["A", "tau", "mu_c", "mu_r", "b"])
     
-    history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data, verbose=0)
+    history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data)
     
     metrics_table=workflow.compute_default_diagnostics(test_data=val_data)
 
