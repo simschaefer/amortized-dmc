@@ -153,10 +153,12 @@ print("Best hyperparameters: {}".format(trial.params))
 with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
     pickle.dump(study, file)
 
+print(f'Study saved successfully.')
 
-with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
+with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'rb') as file:
     study_reloaded = pickle.load(file)
 
+print(f'Study loaded successfully.')
 
 trial = study_reloaded.best_trial
 print("Outcome Metric: {}".format(trial.value))
