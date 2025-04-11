@@ -151,4 +151,4 @@ print("Outcome Metric: {}".format(trial.value))
 print("Best hyperparameters: {}".format(trial.params))
 
 with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
-    pickle.dump(train_data, file)
+    pickle.dump(study, file)
