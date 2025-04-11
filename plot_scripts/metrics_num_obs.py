@@ -49,9 +49,7 @@ simulator.fixed_num_obs = num_max_obs
 val_data = simulator.sample(1000)
 
 
-val_file_path = parent_dir + '/data/validation_data_metrics/validation_data_metrics_' + network_name + '_validation.pickle'
-
-val_data = simulator.sample(1000)
+val_file_path = parent_dir + '/data/validation_data_metrics/validation_data_metrics_' + network_name + '.pickle'
 
 with open(val_file_path, 'wb') as file:
     pickle.dump(val_data, file)
