@@ -7,6 +7,8 @@
 checkpoints/
 plots/
 data/
+!data/optuna_checkpoints/network_0.02_0.0_2_10_16_128.keras
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
