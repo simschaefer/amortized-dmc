@@ -14,62 +14,81 @@ import pickle
 import keras
 
 import bayesflow as bf
-from dmc import DMC
 
-os.getcwd()
+parent_dir = os.getcwd()
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+
+print(f'parent_dir: {parent_dir}', flush=True)
+print(f'dmc_module_dir: {dmc_module_dir}')
+
+sys.path.append(dmc_module_dir)
+
+from dmc import DMC, weighted_metric_sum
+
+
 #########
-network_name = "dmc_training500trials_oof_priors"
-
-dropout = 0.011529815885353391
-lr = 0.0008293769610382236
-num_seeds = 2
-depth = 7
-batch_size = 16
+network_name = "dmc_optimized_updated_priors"
 #########
 
+epochs = 50
+num_batches_per_epoch = 1000
 
-simulation_settings = {"prior_means": np.array([16., 111., 0.5, 322., 75.]),
-                       "prior_sds": np.array([10., 47., 0.13, 40., 23.]),\
-                        "tmax": 1500,
-                        "contamination_probability": None}
 
-simulator = DMC(
-    prior_means=simulation_settings["prior_means"], 
-    prior_sds=simulation_settings["prior_sds"],
-    tmax=simulation_settings["tmax"],
-    contamination_probability=simulation_settings["contamination_probability"]
-)
+# study.enqueue_trial({"dropout": 0.0100967297,
+#                      "lr": 0.0004916,
+#                      "num_seeds": 2,
+#                      "batch_size": 16,
+#                      "embed_dim": 128})
 
-file_path = 'simulators/simulator_' + network_name + '.pickle'
+model_specs = {"simulation_settings": {"prior_means": np.array([16., 111., 0.5, 322., 75.]),
+                                       "prior_sds": np.array([10., 47., 0.13, 40., 23.]),
+                                       "tmax": 1500,
+                                       "contamination_probability": None,
+                                       "min_num_obs": 50,
+                                       "max_num_obs": 800,
+                                       "fixed_num_obs": None},
+"inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.0100967297}}, "depth":10},
+"summary_network_settings": {"dropout": 0.0100967297,
+                             "num_seeds": 2,
+                             "summary_dim": 32,
+                             "embed_dim": (128, 128)},
+                             'batch_size': 16,
+                             'learning_rate': 0.0004916,
+                             'param_names': ["A", "tau", "mu_c", "mu_r", "b"]}
+
+
+file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 
 with open(file_path, 'wb') as file:
-    pickle.dump(simulation_settings, file)
+    pickle.dump(model_specs, file)
 
 adapter = (
     bf.adapters.Adapter()
     .convert_dtype("float64", "float32")
     .sqrt("num_obs")
-    .concatenate(["A", "tau", "mu_c", "mu_r", "b"], into="inference_variables")
+    .concatenate(model_specs["param_names"], into="inference_variables")
     .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
     .standardize(include="inference_variables")
     .rename("num_obs", "inference_conditions")
 )
 
-inference_net = bf.networks.CouplingFlow(coupling_kwargs=dict(subnet_kwargs=dict(dropout=dropout)), depth=depth)
+simulator = DMC(**model_specs['simulation_settings'])
+
+inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
 
 # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
 
-summary_net = bf.networks.SetTransformer(summary_dim=32, embed_dims = (128, 128), num_seeds=num_seeds, dropout=dropout)
+summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
 workflow = bf.BasicWorkflow(
     simulator=simulator,
     adapter=adapter,
-    initial_learning_rate=lr,
+    initial_learning_rate=model_specs["learning_rate"],
     inference_network=inference_net,
     summary_network=summary_net,
-    checkpoint_filepath='checkpoints',
+    checkpoint_filepath=parent_dir + '/bf_dmc/data/training_ceckpoints',
     checkpoint_name=network_name,
-    inference_variables=["A", "tau", "mu_c", "mu_r", "b"]
+    inference_variables=model_specs["param_names"]
 )
 
 # file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
@@ -90,13 +109,13 @@ val_data = simulator.sample(200)
 with open(val_file_path, 'wb') as file:
     pickle.dump(val_data, file)
 
-with open(val_file_path, 'rb') as file:
-    val_data = pickle.load(file)
+# with open(val_file_path, 'rb') as file:
+#     val_data = pickle.load(file)
 
 
 _ = adapter(val_data, strict=True, stage="inference")
 
 
-history = workflow.fit_online(epochs=100, num_batches_per_epoch=1000, batch_size=16, validation_data=val_data)
+history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
 
 # approximator = keras.saving.load_model("../checkpoints/" + network_name)
