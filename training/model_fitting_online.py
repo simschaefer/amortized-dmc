@@ -110,7 +110,7 @@ workflow = bf.BasicWorkflow(
 #     train_data = pickle.load(file)
     
 
-val_file_path = 'data/data_offline_training/data_offline_validation_' + network_name + '.pickle'
+val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
     
 val_data = simulator.sample(200)
 
