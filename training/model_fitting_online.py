@@ -111,7 +111,7 @@ workflow = bf.BasicWorkflow(
     
 
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
-    
+
 val_data = simulator.sample(200)
 
 with open(val_file_path, 'wb') as file:
