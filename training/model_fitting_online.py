@@ -31,7 +31,7 @@ print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC, weighted_metric_sum
+from dmc import DMC
 
 
 #########
