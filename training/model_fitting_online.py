@@ -4,6 +4,14 @@ sys.path.append("../../BayesFlow")
 sys.path.append("../")
 
 import os
+
+import torch 
+
+print("CUDA available:", torch.cuda.is_available(), flush=True)
+print(torch.cuda.device_count(), flush=True)
+print("Using device:", torch.cuda.get_device_name(0))
+
+
 if "KERAS_BACKEND" not in os.environ:
     # set this to "torch", "tensorflow", or "jax"
     os.environ["KERAS_BACKEND"] = "torch"
