@@ -270,4 +270,3 @@ class DMC:
         prior_draws = self.prior()
         sims = self.experiment(**prior_draws)
         return prior_draws | sims
-
