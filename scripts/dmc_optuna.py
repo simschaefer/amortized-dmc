@@ -106,13 +106,13 @@ with open(val_file_path, 'rb') as file:
 def objective(trial, epochs=n_epochs):
 
     # Optimize hyperparameters
-    dropout = trial.suggest_float("dropout", 0.01, 0.3, initial_value=0.0100967297)
-    initial_learning_rate = trial.suggest_float("lr", 1e-4, 1e-3, initial_value=0.0004916) 
-    num_seeds = trial.suggest_int("num_seeds", 1, 8, initial_value=2)
-    depth = trial.suggest_int("depth", 5, 10, initial_value=10)
-    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128], initial_value=16)
+    dropout = trial.suggest_float("dropout", 0.01, 0.3, default=0.0100967297)
+    initial_learning_rate = trial.suggest_float("lr", 1e-4, 1e-3, default=0.0004916) 
+    num_seeds = trial.suggest_int("num_seeds", 1, 8, default=2)
+    depth = trial.suggest_int("depth", 5, 10, default=10)
+    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128], default=16)
 
-    embed_dim=trial.suggest_categorical("embed_dim", [64, 128], initial_value=128)
+    embed_dim=trial.suggest_categorical("embed_dim", [64, 128], default=128)
 
     
     # Create inference net 
