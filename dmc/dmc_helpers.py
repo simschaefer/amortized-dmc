@@ -70,7 +70,7 @@ def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sb
     return weighted_sum
 
 
-def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "t0", "b"]):
+def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
     
     # generate random indices for random draws of posterior samples for resimulation
     random_idx = np.random.choice(np.arange(0,num_resims), size = num_resims)
@@ -79,7 +79,7 @@ def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, para
     resim_samples = post_sample_data.iloc[random_idx][param_names]
 
     # adjust number of trials in simulator (should be equal to the number of trials in the empirical data)
-    simulator.num_obs=num_obs
+    # simulator.num_obs=num_obs
 
     list_resim_dfs = []
 
@@ -88,13 +88,14 @@ def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, para
         resim =  simulator.experiment(A=resim_samples["A"].values[i],
                                 tau=resim_samples["tau"].values[i],
                                 mu_c=resim_samples["mu_c"].values[i],
-                                mu_r=resim_samples["t0"].values[i],
-                                b=resim_samples["b"].values[i])
+                                mu_r=resim_samples["mu_r"].values[i],
+                                b=resim_samples["b"].values[i],
+                                num_obs=num_obs)
         
         resim_df = pd.DataFrame(resim)
         
         resim_df["num_resim"] = i
-        resim_df["partricipant"] = part
+        resim_df["participant"] = part
         
         list_resim_dfs.append(pd.DataFrame(resim_df))
 
