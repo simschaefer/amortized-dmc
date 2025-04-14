@@ -45,8 +45,8 @@ from dmc import DMC, weighted_metric_sum
 
 
 network_name = "oos500trials_noco"
-n_trials = 1
-n_epochs = 1
+n_trials = 20
+n_epochs = 50
 
 
 model_specs = {'prior_means': np.array([16., 111., 0.5, 322., 75.]),
@@ -112,11 +112,7 @@ def objective(trial, epochs=n_epochs):
     depth = trial.suggest_int("depth", 5, 12)
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
     embed_dim=trial.suggest_categorical("embed_dim", [64, 128])
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> d91fca46af948c1ce41e7ed43e86bc12e2ee878e
     # Create inference net 
     inference_net = bf.networks.CouplingFlow(coupling_kwargs=dict(subnet_kwargs=dict(dropout=dropout)), depth=depth)
 
@@ -133,7 +129,7 @@ def objective(trial, epochs=n_epochs):
         checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{depth}_{batch_size}_{embed_dim}',
         inference_variables=["A", "tau", "mu_c", "mu_r", "b"])
     
-    history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data)
+    history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data, verbose=0)
     
     metrics_table=workflow.compute_default_diagnostics(test_data=val_data)
 
