@@ -1,7 +1,5 @@
 import numpy as np
 from scipy.stats import truncnorm
-import pandas as pd
-import time
 
 class DMC:
     def __init__(
