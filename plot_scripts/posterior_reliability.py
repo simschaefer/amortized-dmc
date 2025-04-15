@@ -19,30 +19,31 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-parent_dir = os.path.dirname(os.getcwd())
 
-print(f'parent_dir: {parent_dir}')
+parent_dir = '/home/administrator/Documents/BF-LIGHT'
 
-param_names =  ["A", "tau", "mu_c", "mu_r", "b"]
-
-network_name = "testrun"
+network_name = 'dmc_optimized_updated_priors'
 
 
-file_path = parent_dir  + '/model_specs/model_specs_' + network_name + '.pickle'
+rel_plot_folder = parent_dir + "/plots/plots_reliability/" + network_name
 
-with open(file_path, 'rb') as file:
+if not os.path.exists(rel_plot_folder):
+    os.makedirs(rel_plot_folder)
+
+
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-simulator = DMC(**model_specs['simulation_settings'])
+simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
+## Load Approximator
 
-# Load checkpoints
-approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
-# approximator.compile()
+approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
+approximator.compile()
 
 
-
-narrow_data = pd.read_csv(parent_dir + '/data/model_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/data/model_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
 
@@ -98,7 +99,7 @@ for p, ax in zip(model_specs['param_names'], axes):
     )
     ax.set_title(dmc_helpers.param_labels([p]))
 
-fig.savefig(parent_dir + '/plots/plots_reliability/plot_reliability_' + network_name + '.png')
+fig.savefig(rel_plot_folder + '/plot_reliability_' + network_name + '.png')
 
 
 # %%
@@ -110,7 +111,7 @@ for p, ax in zip(model_specs['param_names'], axes):
 
 fig.tight_layout()
 
-fig.savefig(parent_dir + '/plots/plots_reliability/plot_reliability_hist_' + network_name + '.png')
+fig.savefig(rel_plot_folder + '/plot_reliability_hist_' + network_name + '.png')
 
 
 # %%
@@ -122,5 +123,5 @@ for p, ax in zip(model_specs['param_names'], axes):
 
 fig.tight_layout() 
 
-fig.savefig(parent_dir + '/plots/plots_reliability/plot_reliability_kde_' + network_name + '.png')
+fig.savefig(rel_plot_folder + '/plot_reliability_kde_' + network_name + '.png')
 # %%

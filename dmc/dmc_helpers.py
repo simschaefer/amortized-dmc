@@ -1,6 +1,43 @@
 import pandas as pd
 import numpy as np
 import time
+import bayesflow as bf
+from dmc import DMC
+
+
+def load_model_specs(model_specs, network_name):
+
+    simulator = DMC(**model_specs['simulation_settings'])
+
+    adapter = (
+        bf.adapters.Adapter()
+        .convert_dtype("float64", "float32")
+        .sqrt("num_obs")
+        .concatenate(model_specs['param_names'], into="inference_variables")
+        .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+        .standardize(include="inference_variables")
+        .rename("num_obs", "inference_conditions")
+    )
+    # Create inference net 
+    inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
+
+    # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
+
+    summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
+
+    workflow = bf.BasicWorkflow(
+        simulator=simulator,
+        adapter=adapter,
+        initial_learning_rate=model_specs['learning_rate'],
+        inference_network=inference_net,
+        summary_network=summary_net,
+        checkpoint_filepath='../data/training_checkpoints',
+        checkpoint_name= network_name,
+        inference_variables=model_specs['param_names']
+    )
+
+    return simulator, adapter, inference_net, summary_net, workflow
+
 
 def format_empirical_data(data):
     
@@ -123,19 +160,14 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
 
 
 
-def subset_data(data, num_obs, keys = ['rt', 'accuracy', 'conditions']):
+def subset_data(data, num_obs, idx, keys = ['rt', 'accuracy', 'conditions'], random=True):
 
     data = data.copy()
 
-    max_obs = data[keys[0]].shape[1]
-
-    random_idx = np.random.choice(np.arange(0, max_obs), size=num_obs, replace=False)
-
     for k in keys:
         # print(f'{data[k].shape}')
-        data[k] = data[k][:, random_idx, :]
-        # print(f'{data[k].shape}')
-
+        data[k] = data[k][:, idx, :]
+        print(f'{k}: {data[k].shape}')
 
     data['num_obs'] = np.array([num_obs]*1000).reshape(1000,1)
 

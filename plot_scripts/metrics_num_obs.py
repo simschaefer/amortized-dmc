@@ -17,11 +17,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 import bayesflow as bf
-from dmc import DMC, subset_data
+from dmc import DMC, dmc_helpers
 
-parent_dir = os.getcwd()
 
-network_name = 'testrun'
 
 step_size = 50
 
@@ -30,14 +28,15 @@ num_max_obs = 800
 
 
 
-file_path = 'model_specs/model_specs_' + network_name + '.pickle'
+parent_dir = '/home/administrator/Documents/BF-LIGHT'
 
-with open(file_path, 'rb') as file:
+network_name = 'dmc_optimized_updated_priors'
+
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-simulator = DMC(**model_specs['simulation_settings'])
-
-
+simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
 ## Load Approximator
 
 approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
@@ -57,6 +56,12 @@ with open(val_file_path, 'wb') as file:
 for key, values in val_data.items():
     print(f'{key}: {values.shape}')
 
+
+network_plot_folder = parent_dir + "/plots/metrics_num_obs/" + network_name
+
+if not os.path.exists(network_plot_folder):
+    os.makedirs(network_plot_folder)
+
 list_metrics = []
 
 for n_obs in np.arange(50, num_max_obs+1, step_size):
@@ -64,16 +69,16 @@ for n_obs in np.arange(50, num_max_obs+1, step_size):
     print(f'num_obs: {n_obs}')
     # simulator.num_obs = n_obs
 
-    data_subset = subset_data(val_data.copy(), num_obs=n_obs)
+    data_subset = dmc_helpers.subset_data(val_data.copy(), num_obs=n_obs, random=True)
 
     start_time = time.time()
-    samples = approximator.sample(conditions=data_subset, num_samples=1000)
+    samples = approximator.sample(conditions=data_subset.copy, num_samples=1000)
     end_time = time.time()
 
 
     pc_df = pd.DataFrame(bf.diagnostics.metrics.posterior_contraction(samples, data_subset))
 
-    # pc_df['values'] = 1 - pc_df['values']
+    pc_df['values'] = 1 - pc_df['values']
 
     ce_df = pd.DataFrame(bf.diagnostics.metrics.calibration_error(samples, data_subset))
 
@@ -89,6 +94,7 @@ for n_obs in np.arange(50, num_max_obs+1, step_size):
     
 data_set_metrics = pd.concat(list_metrics)
 
+data_set_metrics.reset_index(inplace=True)
 
 fig, axes = plt.subplots(1,5,sharey=True, figsize=(15,3))
 
@@ -106,12 +112,12 @@ for p, ax in zip(model_specs['param_names'], axes):
     
     ax.set_xlabel("")
 
-    plt.ylim(0, 1)
+    # plt.ylim(0, 1)
 
 fig.tight_layout()
 fig.supxlabel("Number of Observations", fontsize=12) 
 
-fig.savefig(parent_dir + '/plots/metrics_num_obs_' + network_name + '.png')
+fig.savefig(network_plot_folder + '/metrics_num_obs_' + network_name + '.png')
 
 
 data_set_metrics_time = data_set_metrics[(data_set_metrics["metric_name"] == 'Calibration Error')]
@@ -133,4 +139,4 @@ time_plot = sns.lineplot(data_set_metrics_time, x="num_obs", y="sampling_time")
 # fig.tight_layout()
 # fig.supxlabel("Number of Observations", fontsize=12) 
 time_plot_fig = time_plot.get_figure()
-time_plot_fig.savefig(parent_dir + '/plots/metrics_num_obs_sampling_time_' + network_name + '.png')
+time_plot_fig.savefig(network_plot_folder + '/metrics_num_obs_sampling_time_' + network_name + '.png')

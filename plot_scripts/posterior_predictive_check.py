@@ -20,24 +20,27 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-network_name = "sims_crazy_net_test_metrics.keras"
+network_name = 'dmc_optimized_updated_priors'
 
 
-# inintialize simulator
-simulator = DMC(
-    prior_means=np.array([16., 111., 0.5, 322., 75.]), 
-    prior_sds=np.array([10., 47., 0.13, 40., 23.]),
-    tmax=1500
-)
+parent_dir = '/home/administrator/Documents/BF-LIGHT'
+
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+with open(model_specs_path, 'rb') as file:
+    model_specs = pickle.load(file)
+
+simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
+## Load Approximator
 
 # Load checkpoints
-approximator = keras.saving.load_model("../checkpoints/" + network_name)
+approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
+approximator.compile()
 
-
-narrow_data = pd.read_csv('../data/model_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv('../data/model_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
+
 
 
 samples_narrow=dmc_helpers.fit_empirical_data(narrow_data, approximator)
@@ -62,6 +65,14 @@ resimulated_accuracies_congruent = []
 resimulated_accuracies_incongruent = []
 
 
+ppc_plot_folder = parent_dir + "/plots/ppc/" + network_name
+
+if not os.path.exists(ppc_plot_folder):
+    os.makedirs(ppc_plot_folder)
+
+
+
+
 for part in parts:
     
     # filter sample data for given participant and narrow spacing
@@ -82,8 +93,8 @@ for part in parts:
     
     
     # resimulate data
-    data_resimulated = resim_data(part_data_samples, num_obs = part_data.shape[0])
-    
+    data_resimulated = dmc_helpers.resim_data(part_data_samples, num_obs = part_data.shape[0], simulator=simulator, part=part)
+
     # exclude non-convergents
     data_resimulated = data_resimulated[data_resimulated["rt"] != -1]
     
@@ -121,6 +132,9 @@ for part in parts:
                 y="accuracy", hue="condition_label", ax=axes[1], label = "Resimulated", alpha=0.5)
     axes[1].plot(aggr_data["condition_label"], aggr_data["accuracy"], "x", color="maroon", markersize=10)
     plt.ylim(0.7, 1)
+
+    fig.get_figure()
+    fig.savefig()
     
     
 sns.kdeplot(empirical_accuracies_congruent, label="Empirical Congruent", color="blue")
@@ -128,3 +142,4 @@ sns.kdeplot(empirical_accuracies_incongruent, label="Empirical Incongruent", col
 sns.kdeplot(resimulated_accuracies_congruent, linestyle=":", label="Resimulated Congruent", color="blue")
 sns.kdeplot(resimulated_accuracies_incongruent, linestyle=":", label="Resimulated Incongruent", color="orange")
 plt.legend()
+
