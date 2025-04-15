@@ -18,13 +18,15 @@ import optuna
 import bayesflow as bf
 
 ## add functions direction
-dmc_module_dir = os.getcwd() + '/bf_dmc/dmc'
+
+parent_dir = os.getcwd()
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
 print(dmc_module_dir)
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC, dmc_helpers
+from dmc import DMC
 
 
 network_name = "oos500trials_noco"
@@ -53,17 +55,17 @@ simulator = DMC(
 
 ## simulate Training data
 
-training_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
+training_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
 train_data = simulator.sample(50000)
 
-with open(file_path, 'wb') as file:
+with open(training_file_path, 'wb') as file:
     pickle.dump(train_data, file)
 
 
 ## simulate validation data
 
-val_file_path = '../data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
+val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
 val_data = simulator.sample(1000)
 
