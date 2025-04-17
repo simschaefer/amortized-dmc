@@ -36,7 +36,7 @@ from dmc import DMC
 
 #########
 network_name = "dmc_optimized_winsim_priors_sdr"
-#########
+######### 
 
 epochs = 100
 num_batches_per_epoch = 1000
