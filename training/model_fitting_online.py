@@ -67,6 +67,7 @@ with open(file_path, 'wb') as file:
 
 adapter = (
     bf.adapters.Adapter()
+    .drop('sd_r')
     .convert_dtype("float64", "float32")
     .sqrt("num_obs")
     .concatenate(model_specs["param_names"], into="inference_variables")
