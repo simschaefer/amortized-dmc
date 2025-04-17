@@ -139,14 +139,12 @@ class DMC:
                 # set sd_r to fixed value if specified
             if self.sdr_fixed is not None:
 
-                sd_r = self.sdr_fixed
+                return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3], b=p[4])
 
             else:
 
-                sd_r = p[-1]
+                return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3],sd_r=p[-1], b=p[4])
 
-
-            return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3],sd_r=sd_r, b=p[4])
         return np.random.normal(self.prior_means, self.prior_sds)
 
     def trial(self, A: float, tau: float, mu_c: float, b: float, t: np.ndarray, noise: np.ndarray, non_decision_ts: np.ndarray):
