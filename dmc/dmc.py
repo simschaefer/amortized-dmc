@@ -1,18 +1,20 @@
 import numpy as np
 from scipy.stats import truncnorm
+import warnings
 
 class DMC:
     def __init__(
         self,
         prior_means: np.ndarray,
         prior_sds: np.ndarray,
-        param_names: tuple[str] = ('A', 'tau', 'mu_c', 'mu_r', 'b'),
+        param_names: tuple[str] = ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r'),
         param_lower_bound: float | None = 0,
         fixed_num_obs: float | None = 200,
         tmax: int = 1200,
         dt: float = 1,
         sigma: float = 4.0,
         X0_beta_shape_fixed: int = 3,
+        sdr_fixed: float | None = 0,
         a_value: int = 2,
         num_conditions: int = 2,
         contamination_probability: float | None = None,
@@ -27,11 +29,11 @@ class DMC:
         Parameters
         ----------
         prior_means : np.ndarray
-            Array of prior means for the model parameters.
+            Array of prior means for the model parameters. 
         prior_sds : np.ndarray
             Array of prior standard deviations for the model parameters.
         param_names : tuple of str, optional
-            Names of the parameters. Default is ('A', 'tau', 'mu_c', 'mu_r', 'b').
+            Names of the parameters. Default is ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r').
         param_lower_bound : float or None, optional
             Lower bound for the prior.
         fixed_num_obs : float, optional
@@ -45,10 +47,14 @@ class DMC:
             Maximum simulation time in milliseconds. Default is 1200.
         dt : float, optional
             Time step of the simulation. Default is 1.
-        sigma : float, optional
+        sigma : floaFixed value for trial-to-trial variability in non-decision time.
+            If None, the non-decision time is drawn from a normal distribution with standard deviation sdr drawn from specified prior distributions.t, optional
             Standard deviation of the noise in the diffusion process. Default is 4.0.
         X0_beta_shape_fixed : int, optional
             Shape parameter used for beta distribution of initial states. Default is 3.
+        sdr_fixed: float, None
+            Fixed value for trial-to-trial variability in non-decision time.
+            If None, the non-decision time is sampled from a normal distribution with standard deviation sdr, which is itself drawn from the specified prior distribution.
         a_value : int, optional
             Constant 'a' value used in the simulation. Default is 2.
         num_conditions : int, optional
@@ -77,9 +83,39 @@ class DMC:
         self.contamination_uniform_upper = contamination_uniform_upper
         self.min_num_obs = min_num_obs
         self.max_num_obs = max_num_obs
+        self.sdr_fixed = sdr_fixed
+
+        if prior_means.shape[0] <= 4 or prior_sds.shape[0]<= 4:
+
+            raise ValueError(f"Only {prior_means.shape[0]} prior means and {prior_sds.shape[0]} prior sds are provided. Specify prior means and sds for each parameter.")
+            
+
+
+        if self.sdr_fixed is None:
+            if self.prior_means.shape[0] <= 5 or self.prior_sds.shape[0] <= 5:
+                
+                raise ValueError("sdr_fixed = None but no prior parameters have been provided. choose a fixed value for sdr_foxed or specify prior_mean and prior_sds for sdr to include trial-to-trial variability of the non-decision time")
+            
+
+        if self.sdr_fixed is not None:
+            if self.prior_means.shape[0] > 5 or self.prior_sds.shape[0] > 5:
+
+                warnings.warn(
+                        f"sdr_fixed = {self.sdr_fixed}, but six prior parameters were provided. "
+                        "The prior mean and standard deviation for sdr will be ignored, and the fixed value will be used instead. "
+                        "To simulate trial-to-trial variability, set sdr_fixed = None.",
+                        UserWarning
+                    )
+                
 
         if num_conditions != 2:
             raise ValueError("Number of conditions must be 2 for this experiment.")
+        
+        if prior_means.shape[0] != prior_sds.shape[0]:
+
+            raise ValueError("prior_mean and prior_sds do not have the same shape. Specify mean and sd for each parameter.")
+            
+
 
     def prior(self):
         """
@@ -95,10 +131,21 @@ class DMC:
             a = (self.param_lower_bound - self.prior_means) / self.prior_sds
             b = (np.inf - self.prior_means) / self.prior_sds
             p = truncnorm.rvs(a, b, loc=self.prior_means, scale=self.prior_sds)
-            return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3], b=p[4])
+
+                # set sd_r to fixed value if specified
+            if self.sdr_fixed is not None:
+
+                sd_r = self.sdr_fixed
+
+            else:
+
+                sd_r = p[-1]
+
+
+            return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3],sd_r=sd_r, b=p[4])
         return np.random.normal(self.prior_means, self.prior_sds)
 
-    def trial(self, A: float, tau: float, mu_c: float, mu_r: float, b: float, t: np.ndarray, noise: np.ndarray):
+    def trial(self, A: float, tau: float, mu_c: float, b: float, t: np.ndarray, noise: np.ndarray, non_decision_ts: np.ndarray):
         """
         Simulate multiple DMC trials in parallel.
 
@@ -161,7 +208,11 @@ class DMC:
         # Fill only for trials that crossed
         idx = np.where(has_crossed)[0]
         crossing_times = t[first_crossing[idx]]
-        rts[idx] = (crossing_times + mu_r) / 1000  # convert to seconds
+
+        # use nondecision times only for trials that crossed
+        non_decision_ts_crossed = non_decision_ts[idx]
+
+        rts[idx] = (crossing_times + non_decision_ts_crossed) / 1000  # convert to seconds
 
         # Determine response type
         resp_hit = X_shift[idx, first_crossing[idx]]
@@ -176,7 +227,8 @@ class DMC:
         mu_c: float, 
         mu_r: float, 
         b: float,
-        num_obs: int
+        num_obs: int,
+        sd_r: float = 0
     ):
         """
         Simulate multiple DMC trials in parallel.
@@ -217,17 +269,18 @@ class DMC:
         # precompute vector of time steps and 2D-noise
         t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
         noise = np.random.normal(size=(num_obs, self.tmax))
+        non_decision_ts = np.random.normal(size=num_obs, loc=mu_r, scale=sd_r)
         
         data = np.zeros((num_obs, 2))
         
         # simulate CONGRUENT trials (positive Amplitude A)
         data[:obs_per_condition] = self.trial(
-            A=A, tau=tau, mu_c=mu_c, mu_r=mu_r, b=b, t=t, noise=noise[:obs_per_condition]
+            A=A, tau=tau, mu_c=mu_c, b=b, t=t, noise=noise[:obs_per_condition], non_decision_ts=non_decision_ts[:obs_per_condition]
         )
         
         # simulate INCONGRUENT trials (negative Amplitude A)
         data[obs_per_condition:] = self.trial(
-            A=-A, tau=tau, mu_c=mu_c, mu_r=mu_r, b=b, t=t, noise=noise[obs_per_condition:]
+            A=-A, tau=tau, mu_c=mu_c, b=b, t=t, noise=noise[obs_per_condition:], non_decision_ts=non_decision_ts[obs_per_condition:]
         )
         
         conditions = conditions[:num_obs]
@@ -280,3 +333,5 @@ class DMC:
         prior_draws = self.prior()
         sims = self.experiment(**(prior_draws | {'num_obs':num_obs}))
         return prior_draws | sims
+
+
