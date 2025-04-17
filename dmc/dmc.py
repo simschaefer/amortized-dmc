@@ -56,7 +56,7 @@ class DMC:
             Fixed value for trial-to-trial variability in non-decision time.
             If None, the non-decision time is sampled from a normal distribution with standard deviation sdr, which is itself drawn from the specified prior distribution.
         a_value : int, optional
-            Constant 'a' value used in the simulation. Default is 2.
+            Constant 'a' value used in the simulation. Default is 2. a > 1 is a necessary condition to simulate data.
         num_conditions : int, optional
             The number of conditions in the experiment. Default is 2.
         contamination_probability :
@@ -88,7 +88,11 @@ class DMC:
         if prior_means.shape[0] <= 4 or prior_sds.shape[0]<= 4:
 
             raise ValueError(f"Only {prior_means.shape[0]} prior means and {prior_sds.shape[0]} prior sds are provided. Specify prior means and sds for each parameter.")
-            
+        
+        if self.a_value <= 1:
+
+            raise ValueError(f"a (gamma shape) = {a_value}. Please choose a value larger than 1.")
+        
 
 
         if self.sdr_fixed is None:

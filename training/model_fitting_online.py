@@ -24,6 +24,7 @@ import keras
 import bayesflow as bf
 
 parent_dir = os.getcwd()
+
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
 print(f'parent_dir: {parent_dir}', flush=True)
@@ -34,21 +35,15 @@ sys.path.append(dmc_module_dir)
 from dmc import DMC
 
 #########
-network_name = "dmc_optimized_updated_priors"
+network_name = "dmc_optimized_winsim_priors_sdr"
 #########
 
-epochs = 50
+epochs = 100
 num_batches_per_epoch = 1000
 
-
-# study.enqueue_trial({"dropout": 0.0100967297,
-#                      "lr": 0.0004916,
-#                      "num_seeds": 2,
-#                      "batch_size": 16,
-#                      "embed_dim": 128})
-
-model_specs = {"simulation_settings": {"prior_means": np.array([16., 111., 0.5, 322., 75.]),
-                                       "prior_sds": np.array([10., 47., 0.13, 40., 23.]),
+model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.71, 332.34, 98.36, 43.36]),
+                                       "prior_sds": np.array([19.42, 40.08, 0.14, 52.07, 30.05, 9.19]),
+                                       'sdr_fixed': None,
                                        "tmax": 1500,
                                        "contamination_probability": None,
                                        "min_num_obs": 50,
