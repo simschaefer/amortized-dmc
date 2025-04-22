@@ -32,7 +32,7 @@ print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC
+from dmc import DMC, dmc_helpers
 
 #########
 network_name = "dmc_optimized_winsim_priors_sdr"
@@ -123,3 +123,14 @@ _ = adapter(val_data, strict=True, stage="inference")
 history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
 
 # approximator = keras.saving.load_model("../checkpoints/" + network_name)
+
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
+
+
+
+plots_dir = parent_dir + '/plots/diagnostics/' + network_name
+os.makedirs(plots_dir, exist_ok=True)
+
+
+for k, i in figs.items():
+    figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '.png')
