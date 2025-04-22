@@ -20,6 +20,7 @@ import numpy as np
 import pickle
 
 import keras
+from datetime import datetime
 
 import bayesflow as bf
 
@@ -41,6 +42,7 @@ network_name = "dmc_optimized_winsim_priors_sdr_estimated"
 epochs = 100
 num_batches_per_epoch = 1000
 
+
 model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.71, 332.34, 98.36, 43.36]),
                                        "prior_sds": np.array([19.42, 40.08, 0.14, 52.07, 30.05, 9.19]),
                                        'sdr_fixed': None,
@@ -58,14 +60,15 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
                              'batch_size': 16,
                              'learning_rate': 0.0004916,
                              'epochs': epochs,
-                             'num_batches_per_epoch': num_batches_per_epoch}
+                             'num_batches_per_epoch': num_batches_per_epoch,
+                             'start_time': datetime.now(),
+                             'network_name': network_name}
 
 
 file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 
-
-#with open(file_path, 'wb') as file:
-#    pickle.dump(model_specs, file)
+with open(file_path, 'wb') as file:
+    pickle.dump(model_specs, file)
 
 simulator = DMC(**model_specs['simulation_settings'])
 
@@ -123,6 +126,14 @@ _ = adapter(val_data, strict=True, stage="inference")
 
 
 history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
+
+file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
+
+model_specs['end_time'] = datetime.now()
+
+with open(file_path, 'wb') as file:
+    pickle.dump(model_specs, file)
+
 
 # approximator = keras.saving.load_model("../checkpoints/" + network_name)
 
