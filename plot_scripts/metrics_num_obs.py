@@ -18,32 +18,35 @@ import seaborn as sns
 
 import bayesflow as bf
 from dmc import DMC, dmc_helpers
+import copy
 
 
 
 step_size = 50
 
-num_max_obs = 800
-
-
-
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
 
-network_name = 'dmc_optimized_updated_priors_sdr_fixed'
+network_name = 'dmc_optimized_updated_priors_old'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+
+
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
+
+model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b')
+
 
 simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
 ## Load Approximator
 
 approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
-approximator.compile()
+#approximator.compile()
 
+max_num_obs = model_specs['simulation_settings']['max_num_obs']
 
-simulator.fixed_num_obs = num_max_obs
+simulator.fixed_num_obs = max_num_obs
 ## Simulate Validation Data Set
 val_data = simulator.sample(1000)
 
@@ -64,15 +67,17 @@ if not os.path.exists(network_plot_folder):
 
 list_metrics = []
 
-for n_obs in np.arange(50, num_max_obs+1, step_size):
+random_idx = np.random.choice(np.arange(0,max_num_obs), size=max_num_obs, replace=False)
+
+for n_obs in np.arange(50, max_num_obs+1, step_size):
     
     print(f'num_obs: {n_obs}')
     # simulator.num_obs = n_obs
 
-    data_subset = dmc_helpers.subset_data(val_data.copy(), num_obs=n_obs, random=True)
+    data_subset = dmc_helpers.subset_data(copy.deepcopy(val_data), idx=random_idx[:n_obs])
 
     start_time = time.time()
-    samples = approximator.sample(conditions=data_subset.copy, num_samples=1000)
+    samples = approximator.sample(conditions=data_subset, num_samples=1000)
     end_time = time.time()
 
 
@@ -98,13 +103,17 @@ data_set_metrics.reset_index(inplace=True)
 
 fig, axes = plt.subplots(1,5,sharey=True, figsize=(15,3))
 
+hue_order = ["Calibration Error", "Posterior Contraction", "NRMSE"]
+palette = {"Calibration Error": 'steelblue', "Posterior Contraction": 'maroon', "NRMSE": 'black'}
+
+
 for p, ax in zip(model_specs['param_names'], axes):
     
     suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
 
     label = suff + p + "$"
     
-    sns.lineplot(data_set_metrics[data_set_metrics["variable_names"] == p], x="num_obs", y="values", hue="metric_name", ax=ax, palette="colorblind")
+    sns.lineplot(data_set_metrics[data_set_metrics["variable_names"] == p], x="num_obs", y="values", hue="metric_name", ax=ax, hue_order=hue_order, palette=palette)
     ax.set_title(label)
     ax.legend(title="")
     if p != "b":

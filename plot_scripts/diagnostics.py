@@ -22,7 +22,7 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_updated_priors_sdr_fixed'
+network_name = 'dmc_optimized_updated_priors_old'
 
 
 
@@ -33,6 +33,7 @@ model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.p
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
+model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b')
 
 simulator = DMC(**model_specs['simulation_settings'])
 

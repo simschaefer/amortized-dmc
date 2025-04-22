@@ -7,7 +7,7 @@ class DMC:
         self,
         prior_means: np.ndarray,
         prior_sds: np.ndarray,
-        param_names: tuple[str] = ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r'),
+        param_names: tuple[str] = ('A', 'tau', 'mu_c', 'mu_r', 'b'),
         param_lower_bound: float | None = 0,
         fixed_num_obs: float | None = 200,
         tmax: int = 1200,

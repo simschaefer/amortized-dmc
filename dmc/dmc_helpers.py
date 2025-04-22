@@ -3,6 +3,7 @@ import numpy as np
 import time
 import bayesflow as bf
 from dmc import DMC
+import copy
 
 
 def load_model_specs(model_specs, network_name):
@@ -175,16 +176,14 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
 
 
 
-def subset_data(data, num_obs, idx, keys = ['rt', 'accuracy', 'conditions']):
+def subset_data(data, idx, keys = ['rt', 'accuracy', 'conditions']):
 
-    data = data.copy()
+    data = copy.deepcopy(data)
 
     for k in keys:
         # print(f'{data[k].shape}')
         data[k] = data[k][:, idx, :]
         print(f'{k}: {data[k].shape}')
-
-    data['num_obs'] = np.array([num_obs]*1000).reshape(1000,1)
 
     return data
 

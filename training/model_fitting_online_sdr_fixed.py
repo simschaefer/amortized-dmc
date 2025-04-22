@@ -36,22 +36,22 @@ sys.path.append(dmc_module_dir)
 from dmc import DMC
 
 #########
-network_name = "dmc_optimized_winsim_priors_sdr_estimated"
+network_name = "dmc_optimized_winsim_priors_sdr_fixed"
 ######### 
 
 epochs = 100
 num_batches_per_epoch = 1000
 
 
-model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.71, 332.34, 98.36, 43.36]),
-                                       "prior_sds": np.array([19.42, 40.08, 0.14, 52.07, 30.05, 9.19]),
-                                       'sdr_fixed': None,
+model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.71, 332.34, 98.36]),
+                                       "prior_sds": np.array([19.42, 40.08, 0.14, 52.07, 30.05]),
+                                       'sdr_fixed': 0,
                                        "tmax": 1500,
                                        "contamination_probability": None,
                                        "min_num_obs": 50,
                                        "max_num_obs": 1000,
                                        "fixed_num_obs": None,
-                                       'param_names': ("A", "tau", "mu_c", "mu_r", "b", "sd_r")},
+                                       'param_names': ("A", "tau", "mu_c", "mu_r", "b")},
 "inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.0100967297}}, "depth":10},
 "summary_network_settings": {"dropout": 0.0100967297,
                              "num_seeds": 2,
@@ -65,6 +65,7 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
                              'network_name': network_name}
 
 print(model_specs, flush=True)
+
 
 file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 
