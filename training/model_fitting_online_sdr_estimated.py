@@ -90,7 +90,7 @@ else:
         bf.adapters.Adapter()
         .convert_dtype("float64", "float32")
         .sqrt("num_obs")
-        .concatenate(model_specs['param_names'], into="inference_variables")
+        .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
         .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
         .standardize(include="inference_variables")
         .rename("num_obs", "inference_conditions")
@@ -153,7 +153,7 @@ def param_labels(param_names):
     return param_labels
 
 
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
