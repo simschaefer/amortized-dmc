@@ -94,6 +94,15 @@ class DMC:
             raise ValueError(f"a (gamma shape) = {a_value}. Please choose a value larger than 1.")
         
 
+        if prior_means.shape[0] != len(param_names):
+
+            raise ValueError(f'Number of prior means ({prior_means.shape[0]}) does not match the number of parameter names ({len(param_names)}).')
+        
+
+        if prior_sds.shape[0] != len(param_names):
+
+            raise ValueError(f'Number of prior sds ({prior_means.shape[0]}) does not match the number of parameter names ({len(param_names)}).')
+        
 
         if self.sdr_fixed is None:
             if self.prior_means.shape[0] <= 5 or self.prior_sds.shape[0] <= 5:

@@ -48,7 +48,8 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
                                        "contamination_probability": None,
                                        "min_num_obs": 50,
                                        "max_num_obs": 800,
-                                       "fixed_num_obs": None},
+                                       "fixed_num_obs": None,
+                                       'param_names': ("A", "tau", "mu_c", "mu_r", "b", "sd_r")},
 "inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.0100967297}}, "depth":10},
 "summary_network_settings": {"dropout": 0.0100967297,
                              "num_seeds": 2,
@@ -56,14 +57,15 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
                              "embed_dim": (128, 128)},
                              'batch_size': 16,
                              'learning_rate': 0.0004916,
-                             'param_names': ["A", "tau", "mu_c", "mu_r", "b"]}
+                             'epochs': epochs,
+                             'num_batches_per_epoch': num_batches_per_epoch}
 
 
 file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 
 
-with open(file_path, 'wb') as file:
-    pickle.dump(model_specs, file)
+#with open(file_path, 'wb') as file:
+#    pickle.dump(model_specs, file)
 
 simulator = DMC(**model_specs['simulation_settings'])
 
@@ -92,8 +94,6 @@ else:
 
 
 inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
-
-# inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
 
 summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
@@ -146,4 +146,4 @@ os.makedirs(plots_dir, exist_ok=True)
 
 
 for k, i in figs.items():
-    figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '.png')
+    figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_posttraining.png')

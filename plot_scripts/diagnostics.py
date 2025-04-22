@@ -1,4 +1,3 @@
-
 import sys
 sys.path.append("../../BayesFlow")
 sys.path.append("../")
@@ -23,7 +22,7 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated'
+network_name = 'dmc_optimized_updated_priors_sdr_fixed'
 
 
 
@@ -92,7 +91,7 @@ val_data = simulator.sample(1000)
 
 #_ = workflow.sample(conditions=val_data, num_samples=100, strict=True)
 
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(simulator.param_names), calibration_ecdf_kwargs={'difference': True})
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
