@@ -28,9 +28,9 @@ num_max_obs = 800
 
 
 
-parent_dir = '/home/administrator/Documents/BF-LIGHT'
+parent_dir = '/home/administrator/Documents/bf_dmc'
 
-network_name = 'dmc_optimized_updated_priors'
+network_name = 'dmc_optimized_updated_priors_sdr_fixed'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:

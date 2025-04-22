@@ -175,7 +175,7 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
 
 
 
-def subset_data(data, num_obs, idx, keys = ['rt', 'accuracy', 'conditions'], random=True):
+def subset_data(data, num_obs, idx, keys = ['rt', 'accuracy', 'conditions']):
 
     data = data.copy()
 
