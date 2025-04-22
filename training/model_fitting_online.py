@@ -33,7 +33,7 @@ print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC, dmc_helpers
+from dmc import DMC
 
 #########
 network_name = "dmc_optimized_winsim_priors_sdr_estimated"
@@ -137,7 +137,24 @@ with open(file_path, 'wb') as file:
 
 # approximator = keras.saving.load_model("../checkpoints/" + network_name)
 
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
+
+def param_labels(param_names):
+
+    param_labels = []
+
+    for p in param_names:
+
+        suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
+
+        param_labels.append(suff + p + "$")
+
+    if len(param_labels) <= 1:
+        param_labels = param_labels[0]
+        
+    return param_labels
+
+
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
