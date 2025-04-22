@@ -47,7 +47,7 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
                                        "tmax": 1500,
                                        "contamination_probability": None,
                                        "min_num_obs": 50,
-                                       "max_num_obs": 800,
+                                       "max_num_obs": 1000,
                                        "fixed_num_obs": None,
                                        'param_names': ("A", "tau", "mu_c", "mu_r", "b", "sd_r")},
 "inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.0100967297}}, "depth":10},
@@ -108,17 +108,6 @@ workflow = bf.BasicWorkflow(
     inference_variables=model_specs["param_names"]
 )
 
-# file_path = '../data/data_offline_training/data_offline_training_' + network_name + '.pickle'
-
-# train_data = simulator.sample(50000)
-
-# with open(file_path, 'wb') as file:
-#     pickle.dump(train_data, file)
-
-# with open(file_path, 'rb') as file:
-#     train_data = pickle.load(file)
-    
-
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
 
 val_data = simulator.sample(200)
@@ -138,7 +127,6 @@ history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_p
 # approximator = keras.saving.load_model("../checkpoints/" + network_name)
 
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
-
 
 
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
