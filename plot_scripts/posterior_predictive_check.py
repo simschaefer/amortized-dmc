@@ -19,19 +19,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from matplotlib.lines import Line2D
 
-network_name = 'dmc_optimized_updated_priors'
+network_name = 'dmc_optimized_updated_priors_sdr_fixed'
 
 
-parent_dir = '/home/administrator/Documents/BF-LIGHT'
+parent_dir = '/home/administrator/Documents/bf_dmc'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
+#simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
 ## Load Approximator
 
+simulator = DMC(**model_specs['simulation_settings'])
 # Load checkpoints
 approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
 approximator.compile()
@@ -73,12 +75,24 @@ if not os.path.exists(ppc_plot_folder):
 
 
 
+con_color = "steelblue"
+inc_color = "maroon"
+
+# Define custom legend elements
+legend_elements = [
+    Line2D([0], [0], color='black', lw=2, linestyle='-', label='Observed'),
+    Line2D([0], [0], color='black', lw=2, linestyle=':', label='Resimulated'),
+    Line2D([0], [0], color=con_color, lw=2, label='Congruent'),
+    Line2D([0], [0], color=inc_color, lw=2, label='Incongruent'),
+]
+
+hue_order = ["congruent", "incongruent"]
+palette = {"congruent": con_color, "incongruent": inc_color}
+
 for part in parts:
     
     # filter sample data for given participant and narrow spacing
-    part_data_samples = samples_complete[samples_complete["participant"]==part]
-
-    part_data_samples = part_data_samples[part_data_samples["spacing"] == "narrow"]
+    part_data_samples = samples_narrow[samples_narrow["participant"]==part]
     
     # filter empirical data for given participant and narrow spacing
     part_data = empirical_data[empirical_data["participant"] == part]
@@ -93,8 +107,10 @@ for part in parts:
     
     
     # resimulate data
-    data_resimulated = dmc_helpers.resim_data(part_data_samples, num_obs = part_data.shape[0], simulator=simulator, part=part)
+    data_resimulated = dmc_helpers.resim_data(post_sample_data=part_data_samples, num_obs = part_data.shape[0], simulator=simulator, part=part)
 
+    # resim_data(post_sample_data, num_obs, simulator, part,
+    
     # exclude non-convergents
     data_resimulated = data_resimulated[data_resimulated["rt"] != -1]
     
@@ -108,9 +124,9 @@ for part in parts:
     # plot individual fit
     fig, axes = plt.subplots(1,2, figsize=(10,3))
 
-    sns.kdeplot(part_data, x="rt", hue="condition_label", ax=axes[0], label = "Observed")
+    sns.kdeplot(part_data, x="rt", hue="condition_label", ax=axes[0], label = "Observed", hue_order=hue_order, palette=palette)
 
-    sns.kdeplot(data_resimulated, x="rt", hue="condition_label", ax=axes[0], linestyle=":", label = "Predicted")
+    sns.kdeplot(data_resimulated, x="rt", hue="condition_label", ax=axes[0], linestyle=":", label = "Predicted", hue_order=hue_order, palette=palette)
 
     aggr_data = part_data.groupby("congruency_num").mean("accuracy")
 
@@ -129,17 +145,17 @@ for part in parts:
     aggr_data_resim["condition_label"] = aggr_data_resim["conditions"].map({0.0: "congruent", 1.0: "incongruent"})
 
     sns.violinplot(aggr_data_resim, x="condition_label", 
-                y="accuracy", hue="condition_label", ax=axes[1], label = "Resimulated", alpha=0.5)
+                y="accuracy", hue="condition_label", ax=axes[1], label = "Resimulated", alpha=0.5, palette=palette)
+    
     axes[1].plot(aggr_data["condition_label"], aggr_data["accuracy"], "x", color="maroon", markersize=10)
     plt.ylim(0.7, 1)
+    fig.suptitle(str(part))
+
+    axes[0].legend(handles=legend_elements, title=None, loc="best")
 
     fig.get_figure()
-    fig.savefig()
+    fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_' + str(part) + '.png')
     
     
-sns.kdeplot(empirical_accuracies_congruent, label="Empirical Congruent", color="blue")
-sns.kdeplot(empirical_accuracies_incongruent, label="Empirical Incongruent", color="orange")
-sns.kdeplot(resimulated_accuracies_congruent, linestyle=":", label="Resimulated Congruent", color="blue")
-sns.kdeplot(resimulated_accuracies_incongruent, linestyle=":", label="Resimulated Incongruent", color="orange")
-plt.legend()
+
 
