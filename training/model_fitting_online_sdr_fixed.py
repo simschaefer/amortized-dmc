@@ -104,7 +104,7 @@ workflow = bf.BasicWorkflow(
     summary_network=summary_net,
     checkpoint_filepath=parent_dir + '/bf_dmc/data/training_ceckpoints',
     checkpoint_name=network_name,
-    inference_variables=model_specs["param_names"]
+    inference_variables=model_specs['simulation_settings']["param_names"]
 )
 
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
@@ -150,7 +150,7 @@ def param_labels(param_names):
     return param_labels
 
 
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
