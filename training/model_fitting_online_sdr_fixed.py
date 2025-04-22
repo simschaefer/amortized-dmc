@@ -26,6 +26,9 @@ import bayesflow as bf
 
 parent_dir = os.getcwd()
 
+arguments = sys.argv[1:]
+slurm_id = str(arguments[0])
+
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
 print(f'parent_dir: {parent_dir}', flush=True)
@@ -36,8 +39,10 @@ sys.path.append(dmc_module_dir)
 from dmc import DMC
 
 #########
-network_name = "dmc_optimized_winsim_priors_sdr_fixed"
+network_name = "dmc_optimized_winsim_priors_sdr_fixed_" + slurm_id
 ######### 
+
+print(network_name, flush=True)
 
 epochs = 100
 num_batches_per_epoch = 1000
