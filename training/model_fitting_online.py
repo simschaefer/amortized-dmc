@@ -35,7 +35,7 @@ sys.path.append(dmc_module_dir)
 from dmc import DMC, dmc_helpers
 
 #########
-network_name = "dmc_optimized_winsim_priors_sdr"
+network_name = "dmc_optimized_winsim_priors_sdr_estimated"
 ######### 
 
 epochs = 100
@@ -65,18 +65,31 @@ file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.p
 with open(file_path, 'wb') as file:
     pickle.dump(model_specs, file)
 
-adapter = (
-    bf.adapters.Adapter()
-    .drop('sd_r')
-    .convert_dtype("float64", "float32")
-    .sqrt("num_obs")
-    .concatenate(model_specs["param_names"], into="inference_variables")
-    .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
-    .standardize(include="inference_variables")
-    .rename("num_obs", "inference_conditions")
-)
-
 simulator = DMC(**model_specs['simulation_settings'])
+
+if simulator.sdr_fixed == 0:
+
+    adapter = (
+        bf.adapters.Adapter()
+        .drop('sd_r')
+        .convert_dtype("float64", "float32")
+        .sqrt("num_obs")
+        .concatenate(model_specs['param_names'], into="inference_variables")
+        .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+        .standardize(include="inference_variables")
+        .rename("num_obs", "inference_conditions")
+    )
+else:
+    adapter = (
+        bf.adapters.Adapter()
+        .convert_dtype("float64", "float32")
+        .sqrt("num_obs")
+        .concatenate(model_specs['param_names'], into="inference_variables")
+        .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+        .standardize(include="inference_variables")
+        .rename("num_obs", "inference_conditions")
+    )
+
 
 inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
 
