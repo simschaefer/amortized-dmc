@@ -18,7 +18,7 @@ def load_model_specs(model_specs, network_name):
             .drop('sd_r')
             .convert_dtype("float64", "float32")
             .sqrt("num_obs")
-            .concatenate(model_specs['param_names'], into="inference_variables")
+            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
             .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
             .standardize(include="inference_variables")
             .rename("num_obs", "inference_conditions")
@@ -28,7 +28,7 @@ def load_model_specs(model_specs, network_name):
             bf.adapters.Adapter()
             .convert_dtype("float64", "float32")
             .sqrt("num_obs")
-            .concatenate(model_specs['param_names'], into="inference_variables")
+            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
             .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
             .standardize(include="inference_variables")
             .rename("num_obs", "inference_conditions")
@@ -49,7 +49,7 @@ def load_model_specs(model_specs, network_name):
         summary_network=summary_net,
         checkpoint_filepath='../data/training_checkpoints',
         checkpoint_name= network_name,
-        inference_variables=model_specs['param_names']
+        inference_variables=model_specs['simulation_settings']['param_names']
     )
 
     return simulator, adapter, inference_net, summary_net, workflow

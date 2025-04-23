@@ -153,7 +153,7 @@ def param_labels(param_names):
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 
-plots_dir = parent_dir + '/plots/diagnostics/' + network_name
+plots_dir = parent_dir + '/bf_dmc/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
 
 

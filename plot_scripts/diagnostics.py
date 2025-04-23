@@ -22,7 +22,7 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_updated_priors_old'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated'
 
 
 
@@ -33,7 +33,7 @@ model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.p
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b')
+#model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b')
 
 simulator = DMC(**model_specs['simulation_settings'])
 
@@ -44,7 +44,7 @@ if simulator.sdr_fixed == 0:
         .drop('sd_r')
         .convert_dtype("float64", "float32")
         .sqrt("num_obs")
-        .concatenate(model_specs['param_names'], into="inference_variables")
+        .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
         .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
         .standardize(include="inference_variables")
         .rename("num_obs", "inference_conditions")
@@ -54,7 +54,7 @@ else:
         bf.adapters.Adapter()
         .convert_dtype("float64", "float32")
         .sqrt("num_obs")
-        .concatenate(model_specs['param_names'], into="inference_variables")
+        .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
         .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
         .standardize(include="inference_variables")
         .rename("num_obs", "inference_conditions")
@@ -76,7 +76,7 @@ workflow = bf.BasicWorkflow(
     summary_network=summary_net,
     checkpoint_filepath= parent_dir + '/data/training_checkpoints',
     checkpoint_name=network_name,
-    inference_variables=model_specs['param_names']
+    inference_variables=model_specs['simulation_settings']['param_names']
 )
 
 approximator = keras.saving.load_model(network_dir)
@@ -92,11 +92,10 @@ val_data = simulator.sample(1000)
 
 #_ = workflow.sample(conditions=val_data, num_samples=100, strict=True)
 
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['param_names']), calibration_ecdf_kwargs={'difference': True})
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
-
 
 for k, i in figs.items():
     figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_' + str(fixed_n_obs) + 'trials.png')
