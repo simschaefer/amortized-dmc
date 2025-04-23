@@ -81,8 +81,7 @@ for part, ax in zip(parts, axes):
 
     # resimulate data
     data_resimulated = dmc_helpers.resim_data(part_data_samples, num_obs=part_data.shape[0], simulator=simulator, part=part, param_names=model_specs['simulation_settings']['param_names'] )
-    #def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
-
+    
     # exclude non-convergents
     data_resimulated = data_resimulated[data_resimulated["rt"] != -1]
 
