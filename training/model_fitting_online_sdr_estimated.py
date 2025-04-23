@@ -26,6 +26,7 @@ import bayesflow as bf
 
 arguments = sys.argv[1:]
 slurm_id = str(arguments[0])
+epochs = int(arguments[1])
 
 parent_dir = os.getcwd()
 
@@ -38,7 +39,6 @@ sys.path.append(dmc_module_dir)
 
 from dmc import DMC
 
-epochs = 150
 num_batches_per_epoch = 1000
 
 #########
