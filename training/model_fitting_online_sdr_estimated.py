@@ -24,6 +24,9 @@ from datetime import datetime
 
 import bayesflow as bf
 
+arguments = sys.argv[1:]
+slurm_id = str(arguments[0])
+
 parent_dir = os.getcwd()
 
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
@@ -36,7 +39,7 @@ sys.path.append(dmc_module_dir)
 from dmc import DMC
 
 #########
-network_name = "dmc_optimized_winsim_priors_sdr_estimated"
+network_name = "dmc_optimized_winsim_priors_sdr_estimated_" + str(slurm_id)
 ######### 
 
 epochs = 100
@@ -95,7 +98,7 @@ workflow = bf.BasicWorkflow(
     initial_learning_rate=model_specs["learning_rate"],
     inference_network=inference_net,
     summary_network=summary_net,
-    checkpoint_filepath=parent_dir + '/bf_dmc/data/training_ceckpoints',
+    checkpoint_filepath=parent_dir + '/bf_dmc/data/training_checkpoints',
     checkpoint_name=network_name,
     inference_variables=model_specs["param_names"]
 )

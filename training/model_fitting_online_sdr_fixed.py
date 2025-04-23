@@ -102,7 +102,7 @@ workflow = bf.BasicWorkflow(
     initial_learning_rate=model_specs["learning_rate"],
     inference_network=inference_net,
     summary_network=summary_net,
-    checkpoint_filepath=parent_dir + '/bf_dmc/data/training_ceckpoints',
+    checkpoint_filepath=parent_dir + '/bf_dmc/data/training_checkpoints',
     checkpoint_name=network_name,
     inference_variables=model_specs['simulation_settings']["param_names"]
 )
