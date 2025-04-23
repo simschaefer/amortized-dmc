@@ -38,12 +38,15 @@ sys.path.append(dmc_module_dir)
 
 from dmc import DMC
 
+epochs = 150
+num_batches_per_epoch = 1000
+
 #########
-network_name = "dmc_optimized_winsim_priors_sdr_estimated_" + str(slurm_id)
+network_name = "dmc_optimized_winsim_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
 ######### 
 
-epochs = 100
-num_batches_per_epoch = 1000
+print(network_name, flush=True)
+
 
 
 model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.71, 332.34, 98.36, 43.36]),
