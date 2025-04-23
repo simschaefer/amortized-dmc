@@ -129,7 +129,7 @@ def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, para
     random_idx = np.random.choice(np.arange(0,num_resims), size = num_resims)
 
     # select posterior samples
-    resim_samples = post_sample_data.iloc[random_idx][param_names]
+    resim_samples = post_sample_data.iloc[random_idx][list(param_names)]
 
     # adjust number of trials in simulator (should be equal to the number of trials in the empirical data)
     # simulator.num_obs=num_obs
@@ -138,13 +138,23 @@ def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, para
 
     # resimulate
     for i in range(num_resims):
-        resim =  simulator.experiment(A=resim_samples["A"].values[i],
-                                tau=resim_samples["tau"].values[i],
-                                mu_c=resim_samples["mu_c"].values[i],
-                                mu_r=resim_samples["mu_r"].values[i],
-                                b=resim_samples["b"].values[i],
-                                num_obs=num_obs)
-        
+
+        if simulator.sdr_fixed is not None:
+            resim =  simulator.experiment(A=resim_samples["A"].values[i],
+                                    tau=resim_samples["tau"].values[i],
+                                    mu_c=resim_samples["mu_c"].values[i],
+                                    mu_r=resim_samples["mu_r"].values[i],
+                                    b=resim_samples["b"].values[i],
+                                    num_obs=num_obs)
+        else:
+            resim =  simulator.experiment(A=resim_samples["A"].values[i],
+                        tau=resim_samples["tau"].values[i],
+                        mu_c=resim_samples["mu_c"].values[i],
+                        mu_r=resim_samples["mu_r"].values[i],
+                        b=resim_samples["b"].values[i],
+                        num_obs=num_obs,
+                        sd_r=resim_samples['sd_r'].values[i])
+
         resim_df = pd.DataFrame(resim)
         
         resim_df["num_resim"] = i

@@ -21,7 +21,7 @@ import seaborn as sns
 
 from matplotlib.lines import Line2D
 
-network_name = 'dmc_optimized_updated_priors_sdr_fixed'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated'
 
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
@@ -36,7 +36,6 @@ with open(model_specs_path, 'rb') as file:
 simulator = DMC(**model_specs['simulation_settings'])
 # Load checkpoints
 approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
-approximator.compile()
 
 narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
 wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide.csv')
