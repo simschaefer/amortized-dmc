@@ -21,9 +21,10 @@ import seaborn as sns
 
 from matplotlib.lines import Line2D
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_150_795632'
 
 num_resims = 100
+cumulative = True
 
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
@@ -93,9 +94,11 @@ aggr_resim_list = []
 
 fig, axes = plt.subplots(2,2, figsize=(10,10))
 
+#parts = [  1108,   1430,   1507,   1538,   1582,   1583,   1597,   1601]
+
 for part in parts:
     fig, axes = plt.subplots(2,2, figsize=(10,10))
-    for spacing in [0, 1]:
+    for spacing in (0, 1):
 
         if spacing == 1:
             spacing_cat = 'narrow'
@@ -120,7 +123,12 @@ for part in parts:
         
         
         # resimulate data
-        data_resimulated = dmc_helpers.resim_data(part_data_samples, num_obs=part_data.shape[0], num_resims=num_resims,simulator=simulator, part=part, param_names=model_specs['simulation_settings']['param_names'] )
+        data_resimulated = dmc_helpers.resim_data(part_data_samples, 
+                                                  num_obs=part_data.shape[0], 
+                                                  num_resims=num_resims,
+                                                  simulator=simulator, 
+                                                  part=part, 
+                                                  param_names=model_specs['simulation_settings']['param_names'] )
         
 
         # resim_data(post_sample_data, num_obs, simulator, part,
@@ -137,11 +145,12 @@ for part in parts:
         
         # plot individual fit
 
-        sns.kdeplot(part_data, x="rt", hue="condition_label", ax=axes[spacing,0], label = "Observed", hue_order=hue_order, palette=palette, linewidth=2)
+        sns.kdeplot(part_data, x="rt", hue="condition_label", ax=axes[spacing,0], label = "Observed", hue_order=hue_order, palette=palette, linewidth=2, cumulative=cumulative)
 
         for resim in range(0, num_resims):
-            sns.kdeplot(data_resimulated[data_resimulated['num_resim'] == resim], x="rt", hue="condition_label", ax=axes[spacing,0], linestyle="-", label = "Predicted", hue_order=hue_order, palette=palette, alpha=0.05)
-
+            sns.kdeplot(data_resimulated[data_resimulated['num_resim'] == resim], x="rt", hue="condition_label", ax=axes[spacing,0], linestyle="-", label = "Predicted", hue_order=hue_order, palette=palette, alpha=0.05, cumulative=cumulative)
+        
+        axes[spacing, 0].set_xlim(part_data['rt'].min(), part_data['rt'].max())
 
         aggr_data = part_data.groupby("congruency_num").mean("accuracy")
 

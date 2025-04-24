@@ -22,8 +22,9 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_150_795632'
 
+fixed_n_obs = 800
 
 
 network_dir = parent_dir + "/data/training_checkpoints/" + network_name + '.keras'
@@ -83,8 +84,6 @@ approximator = keras.saving.load_model(network_dir)
 approximator.compile()
 
 workflow.approximator = approximator
-
-fixed_n_obs = 500
 
 simulator.fixed_num_obs = fixed_n_obs
 

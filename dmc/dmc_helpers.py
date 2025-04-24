@@ -55,10 +55,10 @@ def load_model_specs(model_specs, network_name):
     return simulator, adapter, inference_net, summary_net, workflow
 
 
-def format_empirical_data(data):
+def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
     
     # extract relveant variables
-    data_np = data[['rt', 'accuracy', "congruency_num"]].values
+    data_np = data[var_names].values
 
     # convert to dictionary
     inference_data = dict(rt=data_np[:,0],

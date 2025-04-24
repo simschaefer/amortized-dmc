@@ -21,15 +21,18 @@ from dmc import DMC, dmc_helpers
 import copy
 
 
+network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'
+
 
 step_size = 25
 num_reptitions = 20
 num_data_sets = 100
 
+min_num_obs = 50
+max_num_obs = 800
+
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
-
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 
@@ -44,12 +47,7 @@ simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_mode
 ## Load Approximator
 
 approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
-#approximator.compile()
 
-#max_num_obs = model_specs['simulation_settings']['max_num_obs']
-
-
-max_num_obs = 500
 
 simulator.fixed_num_obs = max_num_obs
 
@@ -79,7 +77,7 @@ for rep in range(0, num_reptitions):
     
     print(f"Repitition #{rep+1} of {num_reptitions}")
 
-    for n_obs in np.arange(100, max_num_obs+1, step_size):
+    for n_obs in np.arange(min_num_obs, max_num_obs+1, step_size):
         
         #print(f'num_obs: {n_obs}')
         # simulator.num_obs = n_obs
