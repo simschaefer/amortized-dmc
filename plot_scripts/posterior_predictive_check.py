@@ -21,7 +21,7 @@ import seaborn as sns
 
 from matplotlib.lines import Line2D
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_150_795632'
+network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'
 
 num_resims = 100
 cumulative = True
@@ -232,7 +232,7 @@ for spacing in [0, 1]:
 
     sns.scatterplot(data=spacing_data, x='rt_empirical', y='rt', hue='condition_label', ax=axes[spacing, 0], hue_order=hue_order, palette=palette, alpha=0.8)
     # Add y = x line (slope = 1, intercept = 0)
-    lims = [0.35, 0.6]
+    lims = [spacing_data['rt_empirical'].min() - 0.02, 0.6]
     axes[spacing,0].plot(lims, lims, color='black', linestyle='--', linewidth=1)
 
     axes[spacing,0].set_ylabel('Resimulated')
@@ -249,7 +249,7 @@ for spacing in [0, 1]:
     sns.scatterplot(data=spacing_data, x='accuracy_empirical', y='accuracy', ax=axes[spacing, 1], hue='condition_label', hue_order=hue_order, palette=palette, alpha=0.8)
 
     # Add y = x line (slope = 1, intercept = 0)
-    lims = [0.82, 1]
+    lims = [spacing_data['accuracy_empirical'].min() - 0.02, 1]
     axes[spacing, 1].plot(lims, lims, color='black', linestyle='--', linewidth=1)
     axes[spacing,1].legend_.remove()
 
