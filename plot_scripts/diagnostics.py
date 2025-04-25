@@ -22,10 +22,9 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_150_795632'
+network_name = 'dmc_optimized_updated_priors_sdr_fixed'
 
 fixed_n_obs = 800
-
 
 network_dir = parent_dir + "/data/training_checkpoints/" + network_name + '.keras'
 
@@ -36,7 +35,12 @@ with open(model_specs_path, 'rb') as file:
 
 #model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b')
 
+#model_specs_path = parent_dir + '/model_specs/model_specs_dmc_optimized_updated_priors_sdr_fixed.pickle'
+#with open(model_specs_path, 'rb') as file:
+#    model_specs_updated = pickle.load(file)
+
 simulator = DMC(**model_specs['simulation_settings'])
+
 
 if simulator.sdr_fixed == 0:
 
@@ -81,7 +85,7 @@ workflow = bf.BasicWorkflow(
 )
 
 approximator = keras.saving.load_model(network_dir)
-approximator.compile()
+#approximator.compile()
 
 workflow.approximator = approximator
 

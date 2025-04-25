@@ -21,7 +21,7 @@ from dmc import DMC, dmc_helpers
 import copy
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
 
 
 step_size = 25
@@ -75,7 +75,7 @@ random_idx = np.random.choice(np.arange(0,max_num_obs), size=max_num_obs, replac
 
 for rep in range(0, num_reptitions):
     
-    print(f"Repitition #{rep+1} of {num_reptitions}")
+    print(f"Repetition #{rep+1} of {num_reptitions}")
 
     for n_obs in np.arange(min_num_obs, max_num_obs+1, step_size):
         
