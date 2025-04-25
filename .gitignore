@@ -8,7 +8,7 @@ checkpoints/
 plots/
 data/*
 data/ceckpoints/*
-playgrounds/
+playgrounds/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
