@@ -55,10 +55,10 @@ def load_model_specs(model_specs, network_name):
     return simulator, adapter, inference_net, summary_net, workflow
 
 
-def format_empirical_data(data):
+def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
     
     # extract relveant variables
-    data_np = data[['rt', 'accuracy', "congruency_num"]].values
+    data_np = data[var_names].values
 
     # convert to dictionary
     inference_data = dict(rt=data_np[:,0],
@@ -126,10 +126,15 @@ def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sb
 def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
     
     # generate random indices for random draws of posterior samples for resimulation
-    random_idx = np.random.choice(np.arange(0,num_resims), size = num_resims)
+    random_idx = np.random.choice(np.arange(0,post_sample_data.shape[0]), size = num_resims)
 
-    # select posterior samples
-    resim_samples = post_sample_data.iloc[random_idx][list(param_names)]
+    # convert to dict (allow differing number of samples per parameter)
+    resim_samples = dict(post_sample_data)
+
+    # exclude negative samples
+    for k, dat in resim_samples.items():
+        if k in param_names:
+            resim_samples[k] = dat.values[dat.values >= 0]
 
     # adjust number of trials in simulator (should be equal to the number of trials in the empirical data)
     # simulator.num_obs=num_obs
@@ -140,20 +145,20 @@ def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, para
     for i in range(num_resims):
 
         if simulator.sdr_fixed is not None:
-            resim =  simulator.experiment(A=resim_samples["A"].values[i],
-                                    tau=resim_samples["tau"].values[i],
-                                    mu_c=resim_samples["mu_c"].values[i],
-                                    mu_r=resim_samples["mu_r"].values[i],
-                                    b=resim_samples["b"].values[i],
+            resim =  simulator.experiment(A=resim_samples["A"][i],
+                                    tau=resim_samples["tau"][i],
+                                    mu_c=resim_samples["mu_c"][i],
+                                    mu_r=resim_samples["mu_r"][i],
+                                    b=resim_samples["b"][i],
                                     num_obs=num_obs)
         else:
-            resim =  simulator.experiment(A=resim_samples["A"].values[i],
-                        tau=resim_samples["tau"].values[i],
-                        mu_c=resim_samples["mu_c"].values[i],
-                        mu_r=resim_samples["mu_r"].values[i],
-                        b=resim_samples["b"].values[i],
+            resim =  simulator.experiment(A=resim_samples["A"][i],
+                        tau=resim_samples["tau"][i],
+                        mu_c=resim_samples["mu_c"][i],
+                        mu_r=resim_samples["mu_r"][i],
+                        b=resim_samples["b"][i],
                         num_obs=num_obs,
-                        sd_r=resim_samples['sd_r'].values[i])
+                        sd_r=resim_samples['sd_r'][i])
 
         resim_df = pd.DataFrame(resim)
         
