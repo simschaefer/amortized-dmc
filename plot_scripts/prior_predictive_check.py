@@ -40,18 +40,23 @@ num_obs_empirical = int(round(empirical_data.groupby('participant').count().mean
 
 # load model_specs
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+model_specs_path_fixed = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
 
+with open(model_specs_path_fixed, 'rb') as file:
+    model_specs_fixed = pickle.load(file)
 
-with open(model_specs_path, 'rb') as file:
-    model_specs = pickle.load(file)
+model_specs_path_estimated = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
+
+with open(model_specs_path_estimated, 'rb') as file:
+    model_specs_estimated = pickle.load(file)
+
 
 #model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r')
 
 
-simulator_fixed, adapter_fixed, inference_net_fixed, summary_net_fixed, workflow_fixed = dmc_helpers.load_model_specs(model_specs, network_name_fixed)
+simulator_fixed, adapter_fixed, inference_net_fixed, summary_net_fixed, workflow_fixed = dmc_helpers.load_model_specs(model_specs_fixed, network_name_fixed)
 
-simulator_estimated, adapter_estimated, inference_net_estimated, summary_net_estimated, workflow_estimated = dmc_helpers.load_model_specs(model_specs, network_name_estimated)
+simulator_estimated, adapter_estimated, inference_net_estimated, summary_net_estimated, workflow_estimated = dmc_helpers.load_model_specs(model_specs_estimated, network_name_estimated)
 
 ## Load Approximator
 
