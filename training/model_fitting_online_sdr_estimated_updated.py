@@ -79,7 +79,6 @@ with open(file_path, 'wb') as file:
 
 simulator = DMC(**model_specs['simulation_settings'])
 
-
 adapter = (
     bf.adapters.Adapter()
     .convert_dtype("float64", "float32")
