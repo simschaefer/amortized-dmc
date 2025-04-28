@@ -21,7 +21,11 @@ import seaborn as sns
 
 from matplotlib.lines import Line2D
 
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'
+
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
+#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
+
+#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'
 
 num_resims = 100
 cumulative = True

@@ -24,7 +24,7 @@ import seaborn as sns
 parent_dir = '/home/administrator/Documents/bf_dmc'
 
 network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
-
+#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
@@ -73,7 +73,7 @@ palette = {"narrow": '#132a70', "wide": 'maroon'}
 
 for i, part in enumerate(parts):
     
-    fig, axes = plt.subplots(1,5, figsize=(10,3))
+    fig, axes = plt.subplots(1,len(param_names), figsize=(10,3))
     
     axes = axes.flatten()
 
@@ -131,9 +131,11 @@ for p in param_names:
 
 
 
-fig, axes = plt.subplots(1, 5, sharey=True, sharex=True, figsize=(15,3))
+fig, axes = plt.subplots(1, len(param_names), sharey=True, sharex=True, figsize=(15,3))
 
 for i, ax in enumerate(axes):
+
+    ax.set_xlim(-5,5)
 
     sns.kdeplot(data=sample_com_wide.reset_index(), x= 'd_' + param_names[i], ax=ax, color='#132a70', fill=True)
 
