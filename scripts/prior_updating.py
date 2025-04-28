@@ -28,7 +28,7 @@ import pandas as pd
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
 
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed'
+network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
@@ -38,7 +38,7 @@ simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_mode
 ## Load Approximator
 
 approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
-approximator.compile()
+
 
 
 narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
@@ -61,7 +61,11 @@ empirical_samples_wide = dmc_helpers.fit_empirical_data(wide_data[wide_data['par
 
 empirical_samples_complete = dmc_helpers.fit_empirical_data(empirical_data[empirical_data['participant'].isin(train_idx)], approximator)
 
-empirical_samples_narrow.agg(['mean', 'std'])
+updated_priors_narrow = empirical_samples_narrow.agg(['mean', 'std'])
+
+updated_priors_narrow
+
+updated_priors_narrow.to_csv(parent_dir + '/data/updated_priors/updated_priors_' + network_name + '.csv')
 
 empirical_samples_wide.agg(['mean', 'std'])
 
