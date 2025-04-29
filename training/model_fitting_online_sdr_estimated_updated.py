@@ -1,3 +1,4 @@
+
 import sys
 
 sys.path.append("../../BayesFlow")
@@ -42,7 +43,7 @@ from dmc import DMC
 num_batches_per_epoch = 1000
 
 #########
-network_name = "dmc_optimized_updated_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
+network_name = "dmc_optimized_winsim_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
 ######### 
 
 print(network_name, flush=True)
@@ -78,6 +79,7 @@ with open(file_path, 'wb') as file:
     pickle.dump(model_specs, file)
 
 simulator = DMC(**model_specs['simulation_settings'])
+
 
 adapter = (
     bf.adapters.Adapter()
