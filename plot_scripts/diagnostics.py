@@ -22,7 +22,7 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_updated_priors_sdr_fixed'
+network_name = 'dmc_optimized_updated_priors_sdr_fixed_200_797801'
 
 fixed_n_obs = 800
 
