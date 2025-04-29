@@ -19,13 +19,17 @@ import matplotlib.pyplot as plt
 parent_dir = '/home/administrator/Documents/bf_dmc'
 
 
-#network_name_fixed = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
-#network_name_estimated = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
-#plot_name = 'prior_predictive_check_winsim'
+network_name_fixed = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
+network_name_estimated = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
+plot_name = 'prior_predictive_check_winsim'
 
-network_name_fixed = 'dmc_optimized_updated_priors_sdr_fixed_200_797801'
-network_name_estimated = 'dmc_optimized_updated_priors_sdr_estimated_200_797802'
-plot_name = 'prior_predictive_check_updated'
+#network_name_fixed = 'dmc_optimized_updated_priors_sdr_fixed_200_797801'
+#network_name_estimated = 'dmc_optimized_updated_priors_sdr_estimated_200_797802'
+#plot_name = 'prior_predictive_check_updated'
+
+test = True
+train = True
+
 
 
 import bayesflow as bf
@@ -41,7 +45,23 @@ empirical_data = pd.concat([narrow_data, wide_data])
 empirical_data["condition_label"] = empirical_data["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
 
 
-min_acc = empirical_data.groupby(['participant', 'congruency_num']).mean('accuracy')['accuracy'].min()
+train_idx = np.array([6361, 5281, 6214, 1108, 1538,  833, 4222,  275, 8755, 5281, 4222,
+        985, 1601, 8788,  845, 4222, 8785, 3286, 1761, 3625, 3625, 1583,
+    6844, 7768, 3754,  833, 1821, 7828,  275, 3754, 1657, 5815, 1583])
+
+if not test:
+
+    empirical_data = empirical_data['train_test'] = empirical_data['participant'].isin(train_idx)
+
+if not train:
+    
+    empirical_data = empirical_data[~empirical_data['participant'].isin(train_idx)]
+
+
+
+min_acc = empirical_data.groupby(['participant']).mean('accuracy')['accuracy'].min()
+
+plt.hist(empirical_data.groupby(['participant']).mean('accuracy')['accuracy'])
 
 empirical_accuracies = empirical_data.groupby('participant').mean('accuracy')
 
@@ -138,19 +158,35 @@ for j, model in enumerate(models):
 
     emp_acc['condition_label'] = emp_acc["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
 
-    sns.kdeplot(emp_acc, x='accuracy', hue='condition_label', ax=axes[1, j], hue_order=hue_order, palette=palette, legend=False)
+    sns.kdeplot(emp_acc, x='accuracy', hue='condition_label', ax=axes[1, j], hue_order=hue_order, palette=palette)
 
-    sns.kdeplot(empirical_data, x='rt', ax=axes[0, j], hue='condition_label', hue_order=hue_order, palette=palette, alpha=1)
+    sns.kdeplot(empirical_data.reset_index(), x='rt', ax=axes[0, j], hue='condition_label', hue_order=hue_order, palette=palette, alpha=1)
+
+    axes[1, j].set_xlabel('Accuracy')
+    axes[0, j].set_xlabel('RT')
 
 
 
 axes[0,0].legend_.remove()
-axes[1,1].legend_.remove()
-axes[0,1].legend_.set_title("")
+axes[1,0].legend_.remove()
+
 
 plt.legend()
+
+axes[1,1].legend_.remove()
+
 #fig.suptitle('Prior Predictive Check')
 fig.tight_layout()
+if axes[0,1].legend_ is not None:
+    axes[0,1].legend_.set_title("")
+
+suffix = ''
+
+if train:
+    suffix = '_train'
+
+if test:
+    suffix = suffix + '_test'
 
 
-fig.savefig(parent_dir + '/plots/prior_predictive_check/' + plot_name + '.png')
+fig.savefig(parent_dir + '/plots/prior_predictive_check/' + plot_name + suffix + '.png', dpi=600)
