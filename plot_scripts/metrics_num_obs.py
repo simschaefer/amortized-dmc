@@ -21,7 +21,7 @@ from dmc import DMC, dmc_helpers
 import copy
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
+network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_797797'
 
 
 #step_size = 25

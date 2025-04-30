@@ -44,25 +44,26 @@ from dmc import DMC, weighted_metric_sum
 
 
 
-network_name = "oos500trials_noco"
+network_name = "sdr_estimated_updated_300425"
 n_trials = 20
 n_epochs = 50
 
 
-model_specs = {'prior_means': np.array([16., 111., 0.5, 322., 75.]),
-               'prior_sds': np.array([10., 47., 0.13, 40., 23.]),
-               'tmax': 1500,
-               'num_obs': 500,
-               'network_name': network_name}
+model_specs = {"simulation_settings": {"prior_means": np.array([19.7, 118.9, 0.56, 358.47, 61.1, 37.6]),
+                                       "prior_sds": np.array([7.5, 43.1, 0.119, 24.65, 11.76, 8.566]),
+                                       'sdr_fixed': None,
+                                       "tmax": 1500,
+                                       "contamination_probability": None,
+                                       "min_num_obs": 50,
+                                       "max_num_obs": 1000,
+                                       "fixed_num_obs": None,
+                                       'param_names': ("A", "tau", "mu_c", "mu_r", "b", "sd_r")}}
 
 
-simulator = DMC(
-    prior_means=model_specs['prior_means'], 
-    prior_sds=model_specs['prior_sds'],
-    tmax=model_specs['tmax'],
-    # contamination_probability=.05,
-    num_obs=model_specs['num_obs']
-)
+
+
+simulator = DMC(**model_specs['simulation_settings'])
+
 
 file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 
@@ -74,7 +75,7 @@ adapter = (
 bf.adapters.Adapter()
 .convert_dtype("float64", "float32")
 .sqrt("num_obs")
-.concatenate(["A", "tau", "mu_c", "mu_r", "b"], into="inference_variables")
+.concatenate(["A", "tau", "mu_c", "mu_r", "b", 'sd_r'], into="inference_variables")
 .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
 .standardize(include="inference_variables")
 .rename("num_obs", "inference_conditions")
@@ -145,11 +146,11 @@ study = optuna.create_study(direction="minimize")
 with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
     pickle.dump(study, file)
 
-study.enqueue_trial({"dropout": 0.0100967297,
-                     "lr": 0.0004916,
-                     "num_seeds": 2,
-                     "batch_size": 16,
-                     "embed_dim": 128})
+#study.enqueue_trial({"dropout": 0.0100967297,
+#                     "lr": 0.0004916,
+#                     "num_seeds": 2,
+#                     "batch_size": 16,
+#                     "embed_dim": 128})
 
 study.optimize(objective, n_trials=n_trials)
 
