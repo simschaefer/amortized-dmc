@@ -40,7 +40,7 @@ print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC, weighted_metric_sum
+from dmc import DMC, dmc_helpers
 
 
 
@@ -84,24 +84,24 @@ bf.adapters.Adapter()
 
 training_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
-# train_data = simulator.sample(50000)
+train_data = simulator.sample(50000)
 
-# with open(file_path, 'wb') as file:
-#     pickle.dump(train_data, file)
+with open(training_file_path, 'wb') as file:
+    pickle.dump(train_data, file)
 
-with open(training_file_path, 'rb') as file:
-    train_data = pickle.load(file)
+#with open(training_file_path, 'rb') as file:
+#    train_data = pickle.load(file)
 
 
-# val_data = simulator.sample(1000)
+val_data = simulator.sample(1000)
 
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
-# with open(val_file_path, 'wb') as file:
-#     pickle.dump(val_data, file)
+with open(val_file_path, 'wb') as file:
+    pickle.dump(val_data, file)
 
-with open(val_file_path, 'rb') as file:
-    val_data = pickle.load(file)
+#with open(val_file_path, 'rb') as file:
+#    val_data = pickle.load(file)
 
 
 def objective(trial, epochs=n_epochs):
@@ -130,12 +130,12 @@ def objective(trial, epochs=n_epochs):
         checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{depth}_{batch_size}_{embed_dim}',
         inference_variables=["A", "tau", "mu_c", "mu_r", "b"])
     
-    history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data, verbose=0)
+    history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data)
     
     metrics_table=workflow.compute_default_diagnostics(test_data=val_data)
 
     # compute weighted sum
-    weighted_sum = weighted_metric_sum(metrics_table)
+    weighted_sum = dmc_helpers.weighted_metric_sum(metrics_table)
     
     # loss=np.mean(history.history["val_loss"][-5:])
         
