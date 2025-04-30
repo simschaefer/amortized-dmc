@@ -40,9 +40,24 @@ print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC, dmc_helpers
+from dmc import DMC
 
 
+def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sbc=1):
+    
+    # recode posterior contraction
+    metrics_table.iloc[1,:]=1-metrics_table.iloc[1,:]
+
+    # compute means across parameters
+    metrics_means=metrics_table.mean(axis=1)
+
+    # decide on weights for each metric (Recovery, Posterior Contraction, SBC)
+    metrics_weights=np.array([weight_recovery, weight_pc, weight_sbc])
+
+    # compute weighted sum
+    weighted_sum=np.dot(metrics_means, metrics_weights)
+    
+    return weighted_sum
 
 network_name = "sdr_estimated_updated_300425"
 n_trials = 20
@@ -135,7 +150,7 @@ def objective(trial, epochs=n_epochs):
     metrics_table=workflow.compute_default_diagnostics(test_data=val_data)
 
     # compute weighted sum
-    weighted_sum = dmc_helpers.weighted_metric_sum(metrics_table)
+    weighted_sum = weighted_metric_sum(metrics_table)
     
     # loss=np.mean(history.history["val_loss"][-5:])
         
