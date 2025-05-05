@@ -47,7 +47,6 @@ network_name = "dmc_optimized_winsim_priors_sdr_fixed_" + str(epochs) + '_' + sl
 
 print(network_name, flush=True)
 
-
 model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.71, 332.34, 98.36]),
                                        "prior_sds": np.array([19.42, 40.08, 0.14, 52.07, 30.05]),
                                        'sdr_fixed': 0,

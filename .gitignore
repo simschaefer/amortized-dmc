@@ -9,6 +9,9 @@ plots/
 data/*
 data/ceckpoints/*
 playgrounds/*
+plots.zip
+bf_dmc/data/training_checkpoints/test.keras
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

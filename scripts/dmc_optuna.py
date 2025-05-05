@@ -99,24 +99,24 @@ bf.adapters.Adapter()
 
 training_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
-train_data = simulator.sample(50000)
+#train_data = simulator.sample(50000)
 
-with open(training_file_path, 'wb') as file:
-    pickle.dump(train_data, file)
+#with open(training_file_path, 'wb') as file:
+#   pickle.dump(train_data, file)
 
-#with open(training_file_path, 'rb') as file:
-#    train_data = pickle.load(file)
+with open(training_file_path, 'rb') as file:
+    train_data = pickle.load(file)
 
 
-val_data = simulator.sample(1000)
+#val_data = simulator.sample(1000)
 
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
-with open(val_file_path, 'wb') as file:
-    pickle.dump(val_data, file)
+#with open(val_file_path, 'wb') as file:
+#   pickle.dump(val_data, file)
 
-#with open(val_file_path, 'rb') as file:
-#    val_data = pickle.load(file)
+with open(val_file_path, 'rb') as file:
+    val_data = pickle.load(file)
 
 
 def objective(trial, epochs=n_epochs):

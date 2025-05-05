@@ -50,8 +50,8 @@ print(network_name, flush=True)
 
 
 
-model_specs = {"simulation_settings": {"prior_means": np.array([17.9, 123.74, 0.58, 352.0, 61.94, 34.65]),
-                                       "prior_sds": np.array([7.98, 42.62, 0.12, 28.25, 10.03, 7.15]),
+model_specs = {"simulation_settings": {"prior_means": np.array([20.55, 113.74, 0.57, 358.52, 59.1, 37.1]),
+                                       "prior_sds": np.array([7.39, 41.9, 0.11, 23.96, 10.6, 8.27]),
                                        'sdr_fixed': None,
                                        "tmax": 1500,
                                        "contamination_probability": None,

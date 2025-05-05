@@ -55,9 +55,6 @@ for name in network_names:
 
 
 
-param_names = simulators[0].param_names
-
-data_keys = ('rt', 'accuracy', 'conditions') + param_names
 
 
 df_list = []
@@ -69,6 +66,10 @@ for sim_idx in range(0, num_sims):
     for i, appr in enumerate(approximators):
 
         network_name = network_names[i]
+
+        param_names = simulators[i].param_names
+
+        data_keys = ('rt', 'accuracy', 'conditions') + param_names
 
         single_sim = simulators[i].sample(1)
 
