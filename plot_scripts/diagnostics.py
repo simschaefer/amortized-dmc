@@ -22,9 +22,9 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_updated_priors_sdr_fixed_200_797801'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_800370'
 
-fixed_n_obs = 800
+fixed_n_obs = 200
 
 network_dir = parent_dir + "/data/training_checkpoints/" + network_name + '.keras'
 
@@ -89,9 +89,12 @@ approximator = keras.saving.load_model(network_dir)
 
 workflow.approximator = approximator
 
-simulator.fixed_num_obs = fixed_n_obs
+#simulator.fixed_num_obs = fixed_n_obs
 
 val_data = simulator.sample(1000)
+n_obs = val_data['rt'].shape[1]
+
+print(f' {n_obs}')
 
 #_ = workflow.sample(conditions=val_data, num_samples=100, strict=True)
 
@@ -100,5 +103,6 @@ figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
 
+
 for k, i in figs.items():
-    figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_' + str(fixed_n_obs) + 'trials.png')
+    figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_' + str(n_obs) + 'trials.png')

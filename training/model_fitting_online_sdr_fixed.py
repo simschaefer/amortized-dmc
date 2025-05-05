@@ -103,7 +103,8 @@ workflow = bf.BasicWorkflow(
     summary_network=summary_net,
     checkpoint_filepath=parent_dir + '/bf_dmc/data/training_checkpoints',
     checkpoint_name=network_name,
-    inference_variables=model_specs['simulation_settings']["param_names"]
+    inference_variables=model_specs['simulation_settings']["param_names"],
+    save_best_only=True
 )
 
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
