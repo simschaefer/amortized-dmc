@@ -48,7 +48,7 @@ def load_model_specs(model_specs, network_name):
         inference_network=inference_net,
         summary_network=summary_net,
         checkpoint_filepath='../data/training_checkpoints',
-        checkpoint_name= network_name,
+        checkpoint_name=network_name,
         inference_variables=model_specs['simulation_settings']['param_names']
     )
 

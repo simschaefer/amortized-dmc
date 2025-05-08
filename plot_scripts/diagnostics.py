@@ -22,9 +22,10 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_800370'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_802994'
 
-fixed_n_obs = 200
+
+fixed_n_obs = 250
 
 network_dir = parent_dir + "/data/training_checkpoints/" + network_name + '.keras'
 
