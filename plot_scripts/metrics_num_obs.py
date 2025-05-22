@@ -21,11 +21,11 @@ from dmc import DMC, dmc_helpers
 import copy
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_800370'
+network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_805389'
 
 
 #step_size = 25
-num_reptitions = 100
+num_reptitions = 1000
 num_data_sets = 100
 
 #min_num_obs = 50
