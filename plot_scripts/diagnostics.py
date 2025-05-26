@@ -22,9 +22,10 @@ import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_800370'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805391'
 
-fixed_n_obs = 200
+
+fixed_n_obs = 300
 
 network_dir = parent_dir + "/data/training_checkpoints/" + network_name + '.keras'
 
@@ -33,11 +34,6 @@ model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.p
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-#model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b')
-
-#model_specs_path = parent_dir + '/model_specs/model_specs_dmc_optimized_updated_priors_sdr_fixed.pickle'
-#with open(model_specs_path, 'rb') as file:
-#    model_specs_updated = pickle.load(file)
 
 simulator = DMC(**model_specs['simulation_settings'])
 
@@ -67,7 +63,13 @@ else:
 
 
 # Create inference net 
-inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
+if model_specs['inference_network_settings'] == 'FlowMatching':
+
+    inference_net = bf.networks.FlowMatching()
+
+else:
+
+    inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
 
 # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
 
@@ -85,11 +87,10 @@ workflow = bf.BasicWorkflow(
 )
 
 approximator = keras.saving.load_model(network_dir)
-#approximator.compile()
 
 workflow.approximator = approximator
 
-#simulator.fixed_num_obs = fixed_n_obs
+simulator.fixed_num_obs = fixed_n_obs
 
 val_data = simulator.sample(1000)
 n_obs = val_data['rt'].shape[1]

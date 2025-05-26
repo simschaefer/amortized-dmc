@@ -48,7 +48,7 @@ def load_model_specs(model_specs, network_name):
         inference_network=inference_net,
         summary_network=summary_net,
         checkpoint_filepath='../data/training_checkpoints',
-        checkpoint_name= network_name,
+        checkpoint_name=network_name,
         inference_variables=model_specs['simulation_settings']['param_names']
     )
 
@@ -179,7 +179,11 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
 
     quantile_data = data.groupby(grouping_labels)[rt_var].quantile(quantiles).reset_index()
     
-    quantile_data.rename(columns={"level_2": "quantiles"}, inplace=True)
+    if 'level_2' in quantile_data.columns:
+        quantile_data.rename(columns={"level_2": "quantiles"}, inplace=True)
+
+    if 'level_3' in quantile_data.columns:
+        quantile_data.rename(columns={"level_3": "quantiles"}, inplace=True)
 
     quantile_data_wide = quantile_data.pivot(index="quantiles", columns=congruency_name, values=rt_var)
 

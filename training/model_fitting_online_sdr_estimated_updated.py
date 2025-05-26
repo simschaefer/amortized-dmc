@@ -43,7 +43,7 @@ from dmc import DMC
 num_batches_per_epoch = 1000
 
 #########
-network_name = "dmc_optimized_winsim_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
+network_name = "dmc_optimized_updated_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
 ######### 
 
 print(network_name, flush=True)
@@ -97,7 +97,7 @@ inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settin
 summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
 workflow = bf.BasicWorkflow(
-    simulator=simulator,
+    simulator=simulator, 
     adapter=adapter,
     initial_learning_rate=model_specs["learning_rate"],
     inference_network=inference_net,
