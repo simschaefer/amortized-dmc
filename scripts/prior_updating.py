@@ -28,7 +28,7 @@ import pandas as pd
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_800370'
+network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_805382'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:

@@ -47,9 +47,12 @@ network_name = "dmc_optimized_updated_priors_sdr_fixed_" + str(epochs) + '_' + s
 
 print(network_name, flush=True)
 
+#mean	20.444207	126.471198	0.563360	296.424918	94.306258	4979.000000	0.847260
+#std	6.917926	33.294887	0.148103	22.765754	20.406493	2746.391277	0.165362
 
-model_specs = {"simulation_settings": {"prior_means": np.array([16.78, 163.62, 0.56, 304.74, 85.36]),
-                                       "prior_sds": np.array([7.59, 37.84, 0.125, 25.36, 19.29 ]),
+
+model_specs = {"simulation_settings": {"prior_means": np.array([20.44, 126.47, 0.56, 296.53, 94.3]),
+                                       "prior_sds": np.array([6.92, 33.29, 0.148, 22.77, 20.41]),
                                        'sdr_fixed': 0,
                                        "tmax": 1500,
                                        "contamination_probability": None,
