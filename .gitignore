@@ -11,7 +11,7 @@ data/ceckpoints/*
 playgrounds/*
 plots.zip
 bf_dmc/data/training_checkpoints/test.keras
-
+model_specs/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
