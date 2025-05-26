@@ -105,7 +105,7 @@ def load_model_specs(model_specs, network_name):
 simulator, adapter, inference_net, summary_net, workflow = load_model_specs(model_specs, network_name)
 ## Load Approximator
 
-approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
+approximator = keras.saving.load_model(parent_dir +"/bf_dmc/data/training_checkpoints/" + network_name + ".keras")
 
 network_plot_folder = parent_dir + "/bf_dmc/plots/metrics_num_obs/" + network_name
 
