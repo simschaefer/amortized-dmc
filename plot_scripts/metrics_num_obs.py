@@ -21,7 +21,8 @@ from dmc import DMC, dmc_helpers
 import copy
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_805389'
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
 
 
 #step_size = 25

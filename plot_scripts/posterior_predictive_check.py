@@ -21,8 +21,8 @@ import seaborn as sns
 
 from matplotlib.lines import Line2D
 
-
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
 #network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
 
 #network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'

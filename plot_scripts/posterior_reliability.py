@@ -24,7 +24,8 @@ import seaborn as sns
 parent_dir = '/home/administrator/Documents/bf_dmc'
 
 #network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:

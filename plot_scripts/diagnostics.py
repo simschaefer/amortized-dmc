@@ -15,22 +15,32 @@ import seaborn as sns
 
 import matplotlib.pyplot as plt
 
+parent_dir = os.getcwd()
 
-parent_dir = '/home/administrator/Documents/bf_dmc'
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+
+
+print(f'parent_dir: {parent_dir}', flush=True)
+print(f'dmc_module_dir: {dmc_module_dir}')
+
+sys.path.append(dmc_module_dir)
+
 
 import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805391'
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
 
+#network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805391'
 
 fixed_n_obs = 300
 
-network_dir = parent_dir + "/data/training_checkpoints/" + network_name + '.keras'
+network_dir = parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras'
 
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
@@ -101,7 +111,7 @@ print(f' {n_obs}')
 
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
-plots_dir = parent_dir + '/plots/diagnostics/' + network_name
+plots_dir = parent_dir + '/bf_dmc/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
 
 

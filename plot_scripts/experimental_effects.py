@@ -15,15 +15,27 @@ import keras
 
 import bayesflow as bf
 
-sys.path.append('/Users/simonschaefer/Documents/bf_dmc')
+
+parent_dir = os.getcwd()
+
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+
+
+print(f'parent_dir: {parent_dir}', flush=True)
+print(f'dmc_module_dir: {dmc_module_dir}')
+
+sys.path.append(dmc_module_dir)
+
+
 from dmc import dmc_helpers
 import pandas as pd
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-parent_dir = '/home/administrator/Documents/bf_dmc'
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
+
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
 #network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
