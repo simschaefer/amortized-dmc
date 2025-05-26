@@ -17,6 +17,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 import bayesflow as bf
+
+
+parent_dir = os.getcwd()
+
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+
+
+print(f'parent_dir: {parent_dir}', flush=True)
+print(f'dmc_module_dir: {dmc_module_dir}')
+
+sys.path.append(dmc_module_dir)
+
 from dmc import DMC
 import copy
 
@@ -32,10 +44,7 @@ num_data_sets = 100
 #min_num_obs = 50
 #max_num_obs = 800
 
-
-parent_dir = '/home/administrator/Documents/bf_dmc'
-
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 
 
 with open(model_specs_path, 'rb') as file:
@@ -98,7 +107,7 @@ simulator, adapter, inference_net, summary_net, workflow = load_model_specs(mode
 
 approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
 
-network_plot_folder = parent_dir + "/plots/metrics_num_obs/" + network_name
+network_plot_folder = parent_dir + "/bf_dmc/plots/metrics_num_obs/" + network_name
 
 if not os.path.exists(network_plot_folder):
     os.makedirs(network_plot_folder)
