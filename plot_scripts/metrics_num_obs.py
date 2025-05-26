@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 import bayesflow as bf
-from dmc import DMC, dmc_helpers
+from dmc import DMC
 import copy
 
 
@@ -44,7 +44,56 @@ with open(model_specs_path, 'rb') as file:
 #model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r')
 
 
-simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
+def load_model_specs(model_specs, network_name):
+
+    simulator = DMC(**model_specs['simulation_settings'])
+
+    
+    if simulator.sdr_fixed == 0:
+
+        adapter = (
+            bf.adapters.Adapter()
+            .drop('sd_r')
+            .convert_dtype("float64", "float32")
+            .sqrt("num_obs")
+            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
+            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+            .standardize(include="inference_variables")
+            .rename("num_obs", "inference_conditions")
+        )
+    else:
+        adapter = (
+            bf.adapters.Adapter()
+            .convert_dtype("float64", "float32")
+            .sqrt("num_obs")
+            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
+            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+            .standardize(include="inference_variables")
+            .rename("num_obs", "inference_conditions")
+        )
+
+    # Create inference net 
+    inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
+
+    # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
+
+    summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
+
+    workflow = bf.BasicWorkflow(
+        simulator=simulator,
+        adapter=adapter,
+        initial_learning_rate=model_specs['learning_rate'],
+        inference_network=inference_net,
+        summary_network=summary_net,
+        checkpoint_filepath='../data/training_checkpoints',
+        checkpoint_name=network_name,
+        inference_variables=model_specs['simulation_settings']['param_names']
+    )
+
+    return simulator, adapter, inference_net, summary_net, workflow
+
+
+simulator, adapter, inference_net, summary_net, workflow = load_model_specs(model_specs, network_name)
 ## Load Approximator
 
 approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
