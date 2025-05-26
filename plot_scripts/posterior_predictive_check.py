@@ -13,7 +13,20 @@ import pickle
 import keras
 
 import bayesflow as bf
-from dmc import DMC, dmc_helpers
+import time
+
+parent_dir = os.getcwd()
+
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+
+print(f'parent_dir: {parent_dir}', flush=True)
+print(f'dmc_module_dir: {dmc_module_dir}')
+
+sys.path.append(dmc_module_dir)
+
+
+from dmc import DMC
+
 import pandas as pd
 
 import matplotlib.pyplot as plt
@@ -31,9 +44,114 @@ num_resims = 100
 cumulative = True
 
 
-parent_dir = '/home/administrator/Documents/bf_dmc'
+def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
+    
+    # extract relveant variables
+    data_np = data[var_names].values
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+    # convert to dictionary
+    inference_data = dict(rt=data_np[:,0],
+                          accuracy=data_np[:,1],
+                          conditions=data_np[:,2])
+
+    # add dimensions so it fits training data
+    inference_data = {k: v[np.newaxis,..., np.newaxis] for k, v in inference_data.items()}
+
+    # adjust dimensions of num_obs
+    inference_data["num_obs"] = np.array([data_np.shape[0]])[:,np.newaxis]
+    
+    return inference_data
+
+
+def fit_empirical_data(data, approximator, id_label="participant"):
+
+    ids=data[id_label].unique()
+
+    list_data_samples=[]
+
+    for i, id in enumerate(ids):
+        
+        part_data = data[data[id_label]==id]
+        
+        part_data = format_empirical_data(part_data)
+        
+        start_time=time.time()
+        samples = approximator.sample(conditions=part_data, num_samples=1000)
+        end_time=time.time()
+        
+        sampling_time=end_time-start_time
+
+        samples_2d={k: v.flatten() for k, v in samples.items()}
+        
+        data_samples=pd.DataFrame(samples_2d)
+        
+        data_samples[id_label]=id
+        data_samples["sampling_time"]=sampling_time
+        
+        list_data_samples.append(data_samples)
+
+    data_samples_complete=pd.concat(list_data_samples)
+
+    return data_samples_complete
+
+
+def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
+    
+    # generate random indices for random draws of posterior samples for resimulation
+    random_idx = np.random.choice(np.arange(0,post_sample_data.shape[0]), size = num_resims)
+
+    # convert to dict (allow differing number of samples per parameter)
+    resim_samples = dict(post_sample_data)
+
+    # exclude negative samples
+    for k, dat in resim_samples.items():
+        if k in param_names:
+            resim_samples[k] = dat.values[dat.values >= 0]
+
+    # adjust number of trials in simulator (should be equal to the number of trials in the empirical data)
+    # simulator.num_obs=num_obs
+
+    list_resim_dfs = []
+
+    # resimulate
+    for i in range(num_resims):
+
+        if simulator.sdr_fixed is not None:
+            resim =  simulator.experiment(A=resim_samples["A"][i],
+                                    tau=resim_samples["tau"][i],
+                                    mu_c=resim_samples["mu_c"][i],
+                                    mu_r=resim_samples["mu_r"][i],
+                                    b=resim_samples["b"][i],
+                                    num_obs=num_obs)
+        else:
+            resim =  simulator.experiment(A=resim_samples["A"][i],
+                        tau=resim_samples["tau"][i],
+                        mu_c=resim_samples["mu_c"][i],
+                        mu_r=resim_samples["mu_r"][i],
+                        b=resim_samples["b"][i],
+                        num_obs=num_obs,
+                        sd_r=resim_samples['sd_r'][i])
+
+        resim_df = pd.DataFrame(resim)
+        
+        resim_df["num_resim"] = i
+        resim_df["participant"] = part
+        
+        list_resim_dfs.append(pd.DataFrame(resim_df))
+
+    resim_complete = pd.concat(list_resim_dfs)
+    
+    return resim_complete
+
+included_parts = np.array([
+    275, 808, 810, 833, 837, 845, 916, 985, 1108, 1430, 1507, 1538, 1582, 1583, 1597, 1601,
+    1614, 1638, 1657, 1663, 1761, 1768, 1813, 1821, 1824, 3286, 3292, 3487, 3580, 3625, 3754, 3910,
+    3988, 4222, 4264, 5281, 5332, 5575, 5731, 5761, 5803, 5815, 6055, 6109, 6214, 6253, 6262, 6361,
+    6427, 6583, 6634, 6844, 7624, 7756, 7768, 7807, 7813, 7828, 7840, 7924, 7939, 8026, 8308, 8311,
+    8446, 8521, 8704, 8755, 8785, 8788, 161753, 337788
+])
+
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
@@ -42,20 +160,25 @@ with open(model_specs_path, 'rb') as file:
 
 simulator = DMC(**model_specs['simulation_settings'])
 # Load checkpoints
-approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
+approximator = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras')
 
-narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
+
+narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
+
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
+
+wide_data = wide_data[wide_data['participant'].isin(included_parts)]
+
+
 
 empirical_data = pd.concat([narrow_data, wide_data])
 
-
-
-samples_narrow=dmc_helpers.fit_empirical_data(narrow_data, approximator)
+samples_narrow=fit_empirical_data(narrow_data, approximator)
 
 samples_narrow["spacing"]="narrow"
 
-samples_wide=dmc_helpers.fit_empirical_data(wide_data, approximator)
+samples_wide=fit_empirical_data(wide_data, approximator)
 
 samples_wide["spacing"]="wide"
 
@@ -73,7 +196,7 @@ resimulated_accuracies_congruent = []
 resimulated_accuracies_incongruent = []
 
 
-ppc_plot_folder = parent_dir + "/plots/ppc/" + network_name
+ppc_plot_folder = parent_dir + "/bf_dmc/plots/ppc/" + network_name
 
 if not os.path.exists(ppc_plot_folder):
     os.makedirs(ppc_plot_folder)
@@ -127,7 +250,7 @@ for part in parts:
         
         
         # resimulate data
-        data_resimulated = dmc_helpers.resim_data(part_data_samples, 
+        data_resimulated =  resim_data(part_data_samples, 
                                                   num_obs=part_data.shape[0], 
                                                   num_resims=num_resims,
                                                   simulator=simulator, 
@@ -207,7 +330,7 @@ for part in parts:
     fig.get_figure()
 
 
-    fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_' + str(part) + '.png')
+    fig.savefig(parent_dir + '/bf_dmc/plots/ppc/' + network_name + '/'  + network_name + '_' + str(part) + '.png')
     
     
 df_aggr_resim = pd.concat(aggr_resim_list)
@@ -271,5 +394,5 @@ fig.text(.98, 0.3, 'Narrow', va='center', ha='left', fontsize=14, rotation=270)
 
 fig.tight_layout()
 
-fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_mean_rt_mean_acc.png')
+fig.savefig(parent_dir + '/bf_dmc/plots/ppc/' + network_name + '/'  + network_name + '_mean_rt_mean_acc.png')
     
