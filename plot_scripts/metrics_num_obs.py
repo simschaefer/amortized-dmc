@@ -126,7 +126,7 @@ for rep in range(0, num_reptitions):
 
     n_obs = data_subset['rt'].shape[1]
 
-    print(f"Repetition #{rep+1} of {num_reptitions}, {n_obs} trials")
+    print(f"Repetition #{rep+1} of {num_reptitions}, {n_obs} trials", flush=True)
 
     start_time = time.time()
     samples = approximator.sample(conditions=data_subset, num_samples=1000)
