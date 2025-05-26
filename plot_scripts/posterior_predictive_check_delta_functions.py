@@ -23,6 +23,11 @@ import seaborn as sns
 
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
+arguments = sys.argv[1:]
+network_name_fixed = str(arguments[0])
+
+network_name_estimated = str(arguments[0])
+
 
 network_name_fixed = "dmc_optimized_winsim_priors_sdr_fixed_200_802995"
 network_name_estimated = "dmc_optimized_winsim_priors_sdr_estimated_200_802994"
