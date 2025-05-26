@@ -15,35 +15,183 @@ import keras
 
 import bayesflow as bf
 
-sys.path.append('/Users/simonschaefer/Documents/bf_dmc')
-from dmc import dmc_helpers
 import pandas as pd
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-parent_dir = '/home/administrator/Documents/bf_dmc'
+
+parent_dir = os.getcwd()
+
+#parent_dir = '/home/administrator/Documents'
+
+print(f'parent_dir: {parent_dir}', flush=True)
+
+dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+
+print(f'parent_dir: {parent_dir}', flush=True)
+print(f'dmc_module_dir: {dmc_module_dir}')
+
+sys.path.append(dmc_module_dir)
+
+from dmc import DMC
 
 #network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+#network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805375'
+
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
 
-simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
+def param_labels(param_names):
+
+    param_labels = []
+
+    for p in param_names:
+
+        suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
+
+        param_labels.append(suff + p + "$")
+
+    if len(param_labels) <= 1:
+        param_labels = param_labels[0]
+        
+    return param_labels
+
+
+def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
+    
+    # extract relveant variables
+    data_np = data[var_names].values
+
+    # convert to dictionary
+    inference_data = dict(rt=data_np[:,0],
+                          accuracy=data_np[:,1],
+                          conditions=data_np[:,2])
+
+    # add dimensions so it fits training data
+    inference_data = {k: v[np.newaxis,..., np.newaxis] for k, v in inference_data.items()}
+
+    # adjust dimensions of num_obs
+    inference_data["num_obs"] = np.array([data_np.shape[0]])[:,np.newaxis]
+    
+    return inference_data
+
+
+def fit_empirical_data(data, approximator, id_label="participant"):
+
+    ids=data[id_label].unique()
+
+    list_data_samples=[]
+
+    for i, id in enumerate(ids):
+        
+        part_data = data[data[id_label]==id]
+        
+        part_data = format_empirical_data(part_data)
+        
+        start_time=time.time()
+        samples = approximator.sample(conditions=part_data, num_samples=1000)
+        end_time=time.time()
+        
+        sampling_time=end_time-start_time
+
+        samples_2d={k: v.flatten() for k, v in samples.items()}
+        
+        data_samples=pd.DataFrame(samples_2d)
+        
+        data_samples[id_label]=id
+        data_samples["sampling_time"]=sampling_time
+        
+        list_data_samples.append(data_samples)
+
+    data_samples_complete=pd.concat(list_data_samples)
+
+    return data_samples_complete
+
+
+def load_model_specs(model_specs, network_name):
+
+    simulator = DMC(**model_specs['simulation_settings'])
+
+    
+    if simulator.sdr_fixed == 0:
+
+        adapter = (
+            bf.adapters.Adapter()
+            .drop('sd_r')
+            .convert_dtype("float64", "float32")
+            .sqrt("num_obs")
+            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
+            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+            .standardize(include="inference_variables")
+            .rename("num_obs", "inference_conditions")
+        )
+    else:
+        adapter = (
+            bf.adapters.Adapter()
+            .convert_dtype("float64", "float32")
+            .sqrt("num_obs")
+            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
+            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
+            .standardize(include="inference_variables")
+            .rename("num_obs", "inference_conditions")
+        )
+
+    # Create inference net 
+    inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
+
+    # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
+
+    summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
+
+    workflow = bf.BasicWorkflow(
+        simulator=simulator,
+        adapter=adapter,
+        initial_learning_rate=model_specs['learning_rate'],
+        inference_network=inference_net,
+        summary_network=summary_net,
+        checkpoint_filepath='../data/training_checkpoints',
+        checkpoint_name=network_name,
+        inference_variables=model_specs['simulation_settings']['param_names']
+    )
+
+    return simulator, adapter, inference_net, summary_net, workflow
+
+
+simulator, adapter, inference_net, summary_net, workflow = load_model_specs(model_specs, network_name)
 ## Load Approximator
 
 param_names = model_specs['simulation_settings']['param_names']
 
-approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
+approximator = keras.saving.load_model(parent_dir +"/bf_dmc/data/training_checkpoints/" + network_name + ".keras")
 
 
-narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow_reliability.csv')
-wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide_reliability.csv')
+included_parts = np.array([
+    275, 808, 810, 833, 837, 845, 916, 985, 1108, 1430, 1507, 1538, 1582, 1583, 1597, 1601,
+    1614, 1638, 1657, 1663, 1761, 1768, 1813, 1821, 1824, 3286, 3292, 3487, 3580, 3625, 3754, 3910,
+    3988, 4222, 4264, 5281, 5332, 5575, 5731, 5761, 5803, 5815, 6055, 6109, 6214, 6253, 6262, 6361,
+    6427, 6583, 6634, 6844, 7624, 7756, 7768, 7807, 7813, 7828, 7840, 7924, 7939, 8026, 8308, 8311,
+    8446, 8521, 8704, 8755, 8785, 8788, 161753, 337788
+])
+
+
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow_reliability.csv')
+narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
+
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide_reliability.csv')
+wide_data = wide_data[wide_data['participant'].isin(included_parts)]
 
 empirical_data = pd.concat([narrow_data, wide_data])
+
+data_count = empirical_data.groupby('participant').count()
+
+
+
+empirical_data = empirical_data[empirical_data['participant'].isin(included_parts)]
 
 parts = empirical_data['participant'].unique()
 
@@ -73,14 +221,14 @@ plt.legend()
 
 
 # Sample Individual Posterior Samples NARROW
-post_samples_narrow_even = dmc_helpers.fit_empirical_data(narrow_data_even, approximator)
+post_samples_narrow_even = fit_empirical_data(narrow_data_even, approximator)
 
-post_samples_narrow_odd = dmc_helpers.fit_empirical_data(narrow_data_odd, approximator)
+post_samples_narrow_odd = fit_empirical_data(narrow_data_odd, approximator)
 
 # Sample Individual Posterior Samples WIDE
-post_samples_wide_even = dmc_helpers.fit_empirical_data(wide_data_even, approximator)
+post_samples_wide_even = fit_empirical_data(wide_data_even, approximator)
 
-post_samples_wide_odd = dmc_helpers.fit_empirical_data(wide_data_odd, approximator)
+post_samples_wide_odd = fit_empirical_data(wide_data_odd, approximator)
 
 # inspect samples
 
@@ -220,11 +368,15 @@ post_means_odd_wide = post_samples_wide_odd.groupby('participant').mean()
 post_means_even_wide = post_samples_wide_even.groupby('participant').mean()
 
 
-network_plot_folder = "../plots/plots_reliability/" + network_name
+network_plot_folder = parent_dir + "/bf_dmc/plots/plots_reliability/" + network_name
 
 if not os.path.exists(network_plot_folder):
     os.makedirs(network_plot_folder)
 
+
+def spearman(r, k=2):
+
+    return (k*r)/(1+r)
 
 #%%
 fig, axes = plt.subplots(1, len(param_names), figsize=(15, 3))
@@ -244,7 +396,7 @@ for p, ax in zip(param_names, axes):
 
     corr_narrow = post_means_odd_narrow[p].corr(post_means_even_narrow[p])
 
-    ax.text(0.98, 0.09, 'r = ' +  str(round(corr_narrow,2)),
+    ax.text(0.98, 0.09, '$r_c$ = ' +  str(round(spearman(corr_narrow),2)),
          transform=ax.transAxes,  # use axes coordinates
          fontsize=12,
          verticalalignment='bottom',  # align top of text at y=0.99
@@ -253,17 +405,17 @@ for p, ax in zip(param_names, axes):
     
     corr_wide = post_means_odd_wide[p].corr(post_means_even_wide[p])
 
-    ax.text(0.987, 0.01, 'r = ' +  str(round(corr_wide,2)),
+    ax.text(0.987, 0.01, '$r_c$ = ' +  str(round(spearman(corr_wide),2)),
          transform=ax.transAxes,  # use axes coordinates
          fontsize=12,
          verticalalignment='bottom',  # align top of text at y=0.99
          horizontalalignment='right',
          color='maroon')
     
-    ax.set_title(dmc_helpers.param_labels([p]))
+    ax.set_title(param_labels([p]))
 
     if p == 'sd_r':
-        ax.legend()
+        ax.legend(loc='upper left')
 
 fig.tight_layout
 
@@ -271,25 +423,25 @@ fig.savefig(network_plot_folder + '/plot_reliability_' + network_name + '_scatte
 
 
 # %%
-fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+#fig, axes = plt.subplots(1, 5, figsize=(15, 3))#
 
-for p, ax in zip(param_names, axes):
-    ax.hist(corr_data[p])
-    ax.set_title(dmc_helpers.param_labels([p]))
+#for p, ax in zip(param_names, axes):
+#    ax.hist(corr_data[p])
+#    ax.set_title(param_labels([p]))
 
-fig.tight_layout()
+#fig.tight_layout()
 
-fig.savefig(network_plot_folder + '/plot_reliability_hist_' + network_name + '.png')
+#fig.savefig(network_plot_folder + '/plot_reliability_hist_' + network_name + '.png')
 
 
 # %%
-fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+#fig, axes = plt.subplots(1, 5, figsize=(15, 3))
 
-for p, ax in zip(param_names, axes):
-    sns.kdeplot(data=corr_data, x=p, ax=ax)
-    ax.set_title(dmc_helpers.param_labels([p]))
+#for p, ax in zip(param_names, axes):
+#    sns.kdeplot(data=corr_data, x=p, ax=ax)
+#    ax.set_title(param_labels([p]))
 
-fig.tight_layout() 
+#fig.tight_layout() 
 
-fig.savefig(network_plot_folder + '/plot_reliability_kde_' + network_name + '.png')
+#fig.savefig(network_plot_folder + '/plot_reliability_kde_' + network_name + '.png')
 # %%
