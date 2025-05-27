@@ -35,7 +35,7 @@ from dmc import DMC, dmc_helpers
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
 
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_807990'
+network_name = 'dmc_optimized_updated_priors_sdr_estimated_200_810188'
 
 fixed_n_obs = 300
 

@@ -17,6 +17,8 @@ import time
 
 parent_dir = os.getcwd()
 
+parent_dir = '/home/administrator/Documents'
+
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
 print(f'parent_dir: {parent_dir}', flush=True)
@@ -36,7 +38,8 @@ from matplotlib.lines import Line2D
 
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
-#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
+
+network_name = 'dmc_optimized_updated_priors_sdr_estimated_200_810188'
 
 #network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'
 
@@ -335,64 +338,96 @@ for part in parts:
     
 df_aggr_resim = pd.concat(aggr_resim_list)
 
+### resim quantiles
+data_quant_resim = pd.DataFrame(df_aggr_resim.groupby(["participant", "condition_label", "spacing_num"])['rt'].quantile([.25, .5, .75])).reset_index()
+
+data_quant_resim_wide = data_quant_resim.pivot(columns='level_3', index = ['participant','condition_label',	'spacing_num']).reset_index()
+
+data_quant_resim_wide.columns = ['{}_{}'.format(i, j) if j != '' else '{}'.format(i) for i, j in data_quant_resim_wide.columns]
+
+data_quant_resim_wide.columns = ['participant', 'condition_label', 'spacing_num', 'rt_0.25_resim', 'rt_0.50_resim', 'rt_0.75_resim']
+
+
+
 df_aggr_resim_aggr = df_aggr_resim.groupby(["participant", "condition_label", "spacing_num"]).mean(["accuracy", 'rt']).reset_index()
 
-aggr_empirical = empirical_data.groupby(["participant", "congruency_num", "spacing_num"]).mean(["accuracy", 'rt']).reset_index()
 
-aggr_empirical["condition_label"] = aggr_empirical["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
-        
+df_aggr_resim_aggr = pd.merge(df_aggr_resim_aggr, data_quant_resim_wide, on=['participant', 'condition_label', 'spacing_num'], how='left' )
 
-aggr_empirical.columns = ['participant', 'congruency_num', 'spacing_num', 'rt_empirical', 'accuracy_empirical', 'condition_label']
+df_aggr_resim_aggr.rename(columns={'rt': 'mean_rt_resim',
+                                   'accuracy': 'mean_accuracy_resim'}, inplace=True)
 
+
+
+## empirical data
+empirical_data["condition_label"] = empirical_data["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"}) 
+
+
+aggr_empirical = empirical_data.groupby(["participant", "condition_label", "spacing_num"]).mean(["accuracy", 'rt']).reset_index()
+
+## empirical quantiles 
+data_quant_emp = pd.DataFrame(empirical_data.groupby(["participant", "condition_label", "spacing_num"])['rt'].quantile([.25, .5, .75])).reset_index()
+
+data_quant_emp_wide = data_quant_emp.pivot(columns='level_3', index = ['participant','condition_label',	'spacing_num']).reset_index()
+
+data_quant_emp_wide.columns = ['{}_{}'.format(i, j) if j != '' else '{}'.format(i) for i, j in data_quant_emp_wide.columns]
+
+data_quant_emp_wide.columns = ['participant', 'condition_label', 'spacing_num', 'rt_0.25_empirical', 'rt_0.50_empirical', 'rt_0.75_empirical']
+
+
+
+aggr_empirical.columns = ['participant', 'condition_label', 'spacing_num', 'mean_rt_empirical', 'mean_accuracy_empirical', 'congruency_num']
+
+
+aggr_empirical = pd.merge(aggr_empirical, data_quant_emp_wide, on=['participant', 'condition_label', 'spacing_num'], how='left' )
 
 merged = pd.merge(aggr_empirical, df_aggr_resim_aggr, on=['participant', 'condition_label', 'spacing_num'], how='left')
 
 merged["spacing"] = merged["spacing_num"].map({0.0: "Wide", 1.0: "Narrow"})
 
+names = ['Mean RT', 'Mean Accuracy', '.25 Quantile RT', 'Median RT','.75 Quantile RT']
+
 plt.figure()
 
-fig, axes = plt.subplots(2, 2)
+fig, axes = plt.subplots(2, 5, figsize= (15,5))
+
 
 for spacing in [0, 1]:
 
     spacing_data = merged[merged['spacing_num'] == spacing]
 
-    sns.scatterplot(data=spacing_data, x='rt_empirical', y='rt', hue='condition_label', ax=axes[spacing, 0], hue_order=hue_order, palette=palette, alpha=0.8)
-    # Add y = x line (slope = 1, intercept = 0)
-    lims = [spacing_data['rt_empirical'].min() - 0.02, 0.6]
-    axes[spacing,0].plot(lims, lims, color='black', linestyle='--', linewidth=1)
+    for j, var in enumerate(['mean_rt', 'mean_accuracy', 'rt_0.25', 'rt_0.50', 'rt_0.75']):
 
-    axes[spacing,0].set_ylabel('Resimulated')
+        sns.scatterplot(data=spacing_data, x= var+'_empirical', y= var+'_resim', hue='condition_label', ax=axes[spacing, j], hue_order=hue_order, palette=palette, alpha=0.8, legend = False)
+        # Add y = x line (slope = 1, intercept = 0)
 
-    if spacing == 1:
-        axes[spacing,0].set_xlabel('Empirical')
-        axes[spacing,0].legend_.remove()
-    else:
-        axes[spacing,0].set_title('RT')
-        axes[spacing,0].set_xlabel('')
-        axes[spacing,0].legend().set_title("")
+        if var != 'mean_accuracy':
+            lims = [spacing_data[var+'_empirical'].min() - 0.02, 0.6]
+        else:
+            lims = [.75, 1]
 
+        axes[spacing,j].plot(lims, lims, color='black', linestyle='--', linewidth=1)
 
-    sns.scatterplot(data=spacing_data, x='accuracy_empirical', y='accuracy', ax=axes[spacing, 1], hue='condition_label', hue_order=hue_order, palette=palette, alpha=0.8)
+        if j == 0:
+            axes[spacing,j].set_ylabel('Resimulated')
+        else:
+            axes[spacing,j].set_ylabel('')
 
-    # Add y = x line (slope = 1, intercept = 0)
-    lims = [spacing_data['accuracy_empirical'].min() - 0.02, 1]
-    axes[spacing, 1].plot(lims, lims, color='black', linestyle='--', linewidth=1)
-    axes[spacing,1].legend_.remove()
+        if spacing == 1:
+            axes[spacing,j].set_xlabel('Empirical')
+        else:
+            axes[spacing,j].set_xlabel('')
+        
+        if spacing == 0:
+            axes[spacing,j].set_title(names[j])
 
-    axes[spacing,1].set_ylabel('')
-
-    if spacing == 1:
-        axes[spacing, 1].set_xlabel('Empirical')
-    else:
-        axes[spacing,1].set_title('Accuracy')
-        axes[spacing,1].set_xlabel('')
-        axes[spacing,1].set_ylabel('')
-
-fig.text(.98, 0.75, 'Wide', va='center', ha='left', fontsize=14, rotation=270)
-fig.text(.98, 0.3, 'Narrow', va='center', ha='left', fontsize=14, rotation=270)
+fig.text(.99, 0.75, 'Wide', va='center', ha='left', fontsize=14, rotation=270)
+fig.text(.99, 0.3, 'Narrow', va='center', ha='left', fontsize=14, rotation=270)
 
 fig.tight_layout()
 
+
 fig.savefig(parent_dir + '/bf_dmc/plots/ppc/' + network_name + '/'  + network_name + '_mean_rt_mean_acc.png')
     
+
+

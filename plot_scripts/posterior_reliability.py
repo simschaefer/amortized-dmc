@@ -12,6 +12,7 @@ import numpy as np
 import pickle
 
 import keras
+import time
 
 import bayesflow as bf
 
@@ -22,7 +23,7 @@ import seaborn as sns
 
 parent_dir = os.getcwd()
 
-#parent_dir = '/home/administrator/Documents'
+parent_dir = '/home/administrator/Documents'
 
 print(f'parent_dir: {parent_dir}', flush=True)
 
@@ -35,10 +36,11 @@ sys.path.append(dmc_module_dir)
 
 from dmc import DMC
 
-#network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
+
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
 
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_810183'
 #network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805375'
 
 model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
@@ -142,9 +144,9 @@ def load_model_specs(model_specs, network_name):
         )
 
     # Create inference net 
-    inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
+    #inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
 
-    # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
+    inference_net = bf.networks.FlowMatching()
 
     summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
