@@ -15,7 +15,9 @@ import seaborn as sns
 
 import matplotlib.pyplot as plt
 
-parent_dir = os.getcwd()
+#parent_dir = os.getcwd()
+
+parent_dir = '/home/administrator/Documents'
 
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
@@ -33,7 +35,7 @@ from dmc import DMC, dmc_helpers
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
 
-#network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805391'
+network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_807990'
 
 fixed_n_obs = 300
 
