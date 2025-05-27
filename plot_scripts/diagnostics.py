@@ -15,29 +15,27 @@ import seaborn as sns
 
 import matplotlib.pyplot as plt
 
-#parent_dir = os.getcwd()
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
+host = str(arguments[1])
+fixed_n_obs = int(arguments[2])
 
-parent_dir = '/home/administrator/Documents'
+if host == 'local':
+    parent_dir = '/home/administrator/Documents'
+else:
+    parent_dir = os.getcwd()
 
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+#dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
 
 print(f'parent_dir: {parent_dir}', flush=True)
-print(f'dmc_module_dir: {dmc_module_dir}')
+#print(f'dmc_module_dir: {dmc_module_dir}')
 
-sys.path.append(dmc_module_dir)
+#sys.path.append(dmc_module_dir)
 
 
 import bayesflow as bf
 from dmc import DMC, dmc_helpers
-
-
-arguments = sys.argv[1:]
-network_name = str(arguments[0])
-
-network_name = 'dmc_optimized_updated_priors_sdr_estimated_200_810188'
-
-fixed_n_obs = 300
 
 network_dir = parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras'
 

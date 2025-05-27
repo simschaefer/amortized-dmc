@@ -38,12 +38,16 @@ from matplotlib.lines import Line2D
 
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
+host = str(arguments[1])
+fixed_n_obs = int(arguments[2])
+num_resims = int(arguments[6])
 
-network_name = 'dmc_optimized_updated_priors_sdr_estimated_200_810188'
+if host == 'local':
+    parent_dir = '/home/administrator/Documents'
+else:
+    parent_dir = os.getcwd()
 
-#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_150_795633'
 
-num_resims = 100
 cumulative = True
 
 
@@ -98,7 +102,7 @@ def fit_empirical_data(data, approximator, id_label="participant"):
     return data_samples_complete
 
 
-def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
+def resim_data(post_sample_data, num_obs, simulator, part, num_resims = num_resims, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
     
     # generate random indices for random draws of posterior samples for resimulation
     random_idx = np.random.choice(np.arange(0,post_sample_data.shape[0]), size = num_resims)

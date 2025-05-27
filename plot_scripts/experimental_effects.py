@@ -16,7 +16,15 @@ import keras
 import bayesflow as bf
 
 
-parent_dir = os.getcwd()
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
+host = str(arguments[1])
+fixed_n_obs = int(arguments[2])
+
+if host == 'local':
+    parent_dir = '/home/administrator/Documents'
+else:
+    parent_dir = os.getcwd()
 
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
@@ -34,14 +42,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-arguments = sys.argv[1:]
-network_name = str(arguments[0])
-#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
-
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
-
 
 # Load Checkpoints
 approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
