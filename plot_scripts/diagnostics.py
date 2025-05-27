@@ -27,15 +27,33 @@ sys.path.append(dmc_module_dir)
 
 
 import bayesflow as bf
-from dmc import DMC, dmc_helpers
+from dmc import DMC
 
 
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
 
+
+def param_labels(param_names):
+
+    param_labels = []
+
+    for p in param_names:
+
+        suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
+
+        param_labels.append(suff + p + "$")
+
+    if len(param_labels) <= 1:
+        param_labels = param_labels[0]
+        
+    return param_labels
+
+
+
 #network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805391'
 
-fixed_n_obs = 300
+fixed_n_obs = int(arguments[2])
 
 network_dir = parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras'
 
@@ -109,7 +127,7 @@ print(f' {n_obs}')
 
 #_ = workflow.sample(conditions=val_data, num_samples=100, strict=True)
 
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 plots_dir = parent_dir + '/bf_dmc/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
