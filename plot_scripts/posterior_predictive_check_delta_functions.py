@@ -165,12 +165,12 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
 
 
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_fixed + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_fixed = pickle.load(file)
 
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_estimated + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_estimated = pickle.load(file)
 
@@ -182,8 +182,8 @@ simulator_fixed = DMC(**model_specs_fixed['simulation_settings'])
 simulator_estimated = DMC(**model_specs_estimated['simulation_settings'])
 
 # Load checkpoints
-approximator_fixed = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name_fixed + '.keras')
-approximator_estimated = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name_estimated + '.keras')
+approximator_fixed = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name_fixed + '.keras')
+approximator_estimated = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name_estimated + '.keras')
 
 ppc_plot_folder = parent_dir + "/bf_dmc/plots/ppc/" + network_name_fixed
 
@@ -191,8 +191,8 @@ if not os.path.exists(ppc_plot_folder):
     os.makedirs(ppc_plot_folder)
 
 
-narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
 
