@@ -47,12 +47,12 @@ with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
 # Load Checkpoints
-approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
+approximator = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras')
 
 
 # load narrow and wide data
-narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
 
 # concatenate data from both spacing conditions
 empirical_data = pd.concat([narrow_data, wide_data])
@@ -76,7 +76,7 @@ parts=samples_complete["participant"].unique()
 
 param_names = model_specs['simulation_settings']['param_names']
 
-network_plot_folder = "../plots/experimental_effects/" + network_name
+network_plot_folder = parent_dir + "/bf_dmc/plots/experimental_effects/" + network_name
 
 if not os.path.exists(network_plot_folder):
     os.makedirs(network_plot_folder)
