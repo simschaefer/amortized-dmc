@@ -15,45 +15,27 @@ import seaborn as sns
 
 import matplotlib.pyplot as plt
 
-parent_dir = os.getcwd()
+arguments = sys.argv[1:]
+network_name = str(arguments[0])
+host = str(arguments[1])
+fixed_n_obs = int(arguments[2])
 
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+if host == 'local':
+    parent_dir = '/home/administrator/Documents'
+else:
+    parent_dir = os.getcwd()
+
+#dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
 
 print(f'parent_dir: {parent_dir}', flush=True)
-print(f'dmc_module_dir: {dmc_module_dir}')
+#print(f'dmc_module_dir: {dmc_module_dir}')
 
-sys.path.append(dmc_module_dir)
+#sys.path.append(dmc_module_dir)
 
 
 import bayesflow as bf
 from dmc import DMC
-
-
-arguments = sys.argv[1:]
-network_name = str(arguments[0])
-
-
-def param_labels(param_names):
-
-    param_labels = []
-
-    for p in param_names:
-
-        suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
-
-        param_labels.append(suff + p + "$")
-
-    if len(param_labels) <= 1:
-        param_labels = param_labels[0]
-        
-    return param_labels
-
-
-
-#network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805391'
-
-fixed_n_obs = int(arguments[2])
 
 network_dir = parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras'
 

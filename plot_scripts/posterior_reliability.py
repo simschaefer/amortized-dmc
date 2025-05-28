@@ -12,6 +12,7 @@ import numpy as np
 import pickle
 
 import keras
+import time
 
 import bayesflow as bf
 
@@ -22,7 +23,7 @@ import seaborn as sns
 
 parent_dir = os.getcwd()
 
-#parent_dir = '/home/administrator/Documents'
+parent_dir = '/home/administrator/Documents'
 
 print(f'parent_dir: {parent_dir}', flush=True)
 
@@ -35,10 +36,11 @@ sys.path.append(dmc_module_dir)
 
 from dmc import DMC
 
-#network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
+
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
 
+network_name = 'dmc_optimized_updated_priors_sdr_estimated_200_810188'
 #network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805375'
 
 model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
@@ -113,56 +115,8 @@ def fit_empirical_data(data, approximator, id_label="participant"):
     return data_samples_complete
 
 
-def load_model_specs(model_specs, network_name):
+simulator = DMC(**model_specs['simulation_settings'])
 
-    simulator = DMC(**model_specs['simulation_settings'])
-
-    
-    if simulator.sdr_fixed == 0:
-
-        adapter = (
-            bf.adapters.Adapter()
-            .drop('sd_r')
-            .convert_dtype("float64", "float32")
-            .sqrt("num_obs")
-            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
-            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
-            .standardize(include="inference_variables")
-            .rename("num_obs", "inference_conditions")
-        )
-    else:
-        adapter = (
-            bf.adapters.Adapter()
-            .convert_dtype("float64", "float32")
-            .sqrt("num_obs")
-            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
-            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
-            .standardize(include="inference_variables")
-            .rename("num_obs", "inference_conditions")
-        )
-
-    # Create inference net 
-    inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
-
-    # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
-
-    summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
-
-    workflow = bf.BasicWorkflow(
-        simulator=simulator,
-        adapter=adapter,
-        initial_learning_rate=model_specs['learning_rate'],
-        inference_network=inference_net,
-        summary_network=summary_net,
-        checkpoint_filepath='../data/training_checkpoints',
-        checkpoint_name=network_name,
-        inference_variables=model_specs['simulation_settings']['param_names']
-    )
-
-    return simulator, adapter, inference_net, summary_net, workflow
-
-
-simulator, adapter, inference_net, summary_net, workflow = load_model_specs(model_specs, network_name)
 ## Load Approximator
 
 param_names = model_specs['simulation_settings']['param_names']
@@ -378,6 +332,10 @@ def spearman(r, k=2):
 
     return (k*r)/(1+r)
 
+rel_table = pd.DataFrame(np.ones((2, len(param_names))))
+
+rel_table.columns = param_names
+
 #%%
 fig, axes = plt.subplots(1, len(param_names), figsize=(15, 3))
 
@@ -396,6 +354,8 @@ for p, ax in zip(param_names, axes):
 
     corr_narrow = post_means_odd_narrow[p].corr(post_means_even_narrow[p])
 
+    rel_table[p][0] = corr_narrow
+
     ax.text(0.98, 0.09, '$r_c$ = ' +  str(round(spearman(corr_narrow),2)),
          transform=ax.transAxes,  # use axes coordinates
          fontsize=12,
@@ -404,6 +364,8 @@ for p, ax in zip(param_names, axes):
          color='#132a70')
     
     corr_wide = post_means_odd_wide[p].corr(post_means_even_wide[p])
+
+    rel_table[p][1] = corr_wide
 
     ax.text(0.987, 0.01, '$r_c$ = ' +  str(round(spearman(corr_wide),2)),
          transform=ax.transAxes,  # use axes coordinates
@@ -416,6 +378,11 @@ for p, ax in zip(param_names, axes):
 
     if p == 'sd_r':
         ax.legend(loc='upper left')
+
+
+rel_table['network_name'] = network_name
+
+rel_table.to_csv(parent_dir + '/bf_dmc/data/reliability/reliabilities_uncorrected_' + network_name + '.csv')
 
 fig.tight_layout
 

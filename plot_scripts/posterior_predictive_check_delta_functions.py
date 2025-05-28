@@ -19,16 +19,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-parent_dir = os.getcwd()
 
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+arguments = sys.argv[1:]
+network_name_fixed = str(arguments[0])
+host = str(arguments[1])
+fixed_n_obs = int(arguments[2])
+num_resims = int(arguments[6])
+network_name_estimated = str(arguments[3])
+
+if host == 'local':
+    parent_dir = '/home/administrator/Documents'
+else:
+    parent_dir = os.getcwd()
+
+
 
 print(f'parent_dir: {parent_dir}', flush=True)
-print(f'dmc_module_dir: {dmc_module_dir}')
 
-sys.path.append(dmc_module_dir)
 
 from dmc import DMC
+
+
 
 
 def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
@@ -82,7 +93,7 @@ def fit_empirical_data(data, approximator, id_label="participant"):
     return data_samples_complete
 
 
-def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
+def resim_data(post_sample_data, num_obs, simulator, part, num_resims = num_resims, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
     
     # generate random indices for random draws of posterior samples for resimulation
     random_idx = np.random.choice(np.arange(0,post_sample_data.shape[0]), size = num_resims)
@@ -154,18 +165,12 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
 
 
 
-arguments = sys.argv[1:]
-network_name_fixed = str(arguments[0])
-
-network_name_estimated = str(arguments[1])
-
-
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_fixed + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_fixed = pickle.load(file)
 
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
+model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_estimated + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_estimated = pickle.load(file)
 
@@ -177,8 +182,8 @@ simulator_fixed = DMC(**model_specs_fixed['simulation_settings'])
 simulator_estimated = DMC(**model_specs_estimated['simulation_settings'])
 
 # Load checkpoints
-approximator_fixed = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name_fixed + '.keras')
-approximator_estimated = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name_estimated + '.keras')
+approximator_fixed = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name_fixed + '.keras')
+approximator_estimated = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name_estimated + '.keras')
 
 ppc_plot_folder = parent_dir + "/bf_dmc/plots/ppc/" + network_name_fixed
 
@@ -186,8 +191,8 @@ if not os.path.exists(ppc_plot_folder):
     os.makedirs(ppc_plot_folder)
 
 
-narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
 

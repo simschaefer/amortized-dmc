@@ -12,6 +12,10 @@ playgrounds/*
 plots.zip
 bf_dmc/data/training_checkpoints/test.keras
 model_specs/*
+<<<<<<< HEAD
+=======
+plots_masterscript.sh
+>>>>>>> becdbd7c065e4745fb7da821d62db8f814612751
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

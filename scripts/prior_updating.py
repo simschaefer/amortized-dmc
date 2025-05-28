@@ -28,7 +28,7 @@ import pandas as pd
 
 parent_dir = '/home/administrator/Documents/bf_dmc'
 
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_805382'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_810183'
 
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
@@ -105,10 +105,7 @@ for part in empirical_samples_narrow['participant'].unique():
 plt.figure()
 sns.kdeplot(train_data_narrow[train_data_narrow['participant'] ==1797], x='rt', hue='congruency_num')
 
-
-
 # extract weird samples
-empirical_samples_narrow = empirical_samples_narrow[~empirical_samples_narrow['participant'].isin([837, 8704])]
 
 updated_priors_narrow = empirical_samples_narrow.agg(['mean', 'std'])
 
