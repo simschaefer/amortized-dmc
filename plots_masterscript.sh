@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # List of Python files
-files=("posterior_predictive_check_delta_functions.py" "posterior_predictive_check.py" "experimental_effects.py")
+#files=("posterior_predictive_check_delta_functions.py" "posterior_predictive_check.py" "experimental_effects.py")
 
 #files=("diagnostics.py")
 
+files=("prior_predictive_check.py")
 
 # Check if the argument is provided
 if [ -z "$1" ]; then
@@ -14,6 +15,7 @@ fi
 
 # Get the network name from the argument
 network_name="$1"
+network_name2="$2"
 
 # "metrics_num_obs.py"
 # "diagnostics.py"
@@ -21,7 +23,7 @@ network_name="$1"
 # if two networks are compared, choose the fixed sdr as network_name and the estimated as ...2
 num_obs=200
 host="local"
-network_name2="dmc_optimized_winsim_priors_sdr_estimated_200_810183"
+#network_name2="dmc_optimized_winsim_priors_sdr_estimated_200_810183"
 repetitions=1000
 data_sets=100
 num_resims=100

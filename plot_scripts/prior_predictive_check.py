@@ -16,30 +16,37 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-parent_dir = '/home/administrator/Documents/bf_dmc'
+arguments = sys.argv[1:]
+network_name_fixed = str(arguments[0])
+host = str(arguments[1])
+fixed_n_obs = int(arguments[2])
+num_resims = int(arguments[6])
+network_name_estimated = str(arguments[3])
 
+if host == 'local':
+    parent_dir = '/home/administrator/Documents'
+else:
+    parent_dir = os.getcwd()
 
-network_name_fixed = 'dmc_optimized_winsim_priors_sdr_fixed_200_795737'
-network_name_estimated = 'dmc_optimized_winsim_priors_sdr_estimated_200_795738'
-plot_name = 'prior_predictive_check_winsim'
+plot_name = 'prior_predictive_check'
 
 #network_name_fixed = 'dmc_optimized_updated_priors_sdr_fixed_200_797801'
 #network_name_estimated = 'dmc_optimized_updated_priors_sdr_estimated_200_797802'
 #plot_name = 'prior_predictive_check_updated'
 
 test = True
-train = True
+train = False
 
 
 
 import bayesflow as bf
-from dmc import DMC, dmc_helpers
+from dmc import DMC
 
 import pandas as pd
 
 
-narrow_data = pd.read_csv('../data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv('../data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
 empirical_data["condition_label"] = empirical_data["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
@@ -49,13 +56,8 @@ train_idx = np.array([6361, 5281, 6214, 1108, 1538,  833, 4222,  275, 8755, 5281
         985, 1601, 8788,  845, 4222, 8785, 3286, 1761, 3625, 3625, 1583,
     6844, 7768, 3754,  833, 1821, 7828,  275, 3754, 1657, 5815, 1583])
 
-if not test:
 
-    empirical_data = empirical_data['train_test'] = empirical_data['participant'].isin(train_idx)
-
-if not train:
-    
-    empirical_data = empirical_data[~empirical_data['participant'].isin(train_idx)]
+empirical_data = empirical_data[~empirical_data['participant'].isin(train_idx)]
 
 
 
@@ -69,12 +71,12 @@ num_obs_empirical = int(round(empirical_data.groupby('participant').count().mean
 
 # load model_specs
 
-model_specs_path_fixed = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
+model_specs_path_fixed = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_fixed + '.pickle'
 
 with open(model_specs_path_fixed, 'rb') as file:
     model_specs_fixed = pickle.load(file)
 
-model_specs_path_estimated = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
+model_specs_path_estimated = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_estimated + '.pickle'
 
 with open(model_specs_path_estimated, 'rb') as file:
     model_specs_estimated = pickle.load(file)
@@ -82,9 +84,9 @@ with open(model_specs_path_estimated, 'rb') as file:
 
 #model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r')
 
-simulator_fixed, adapter_fixed, inference_net_fixed, summary_net_fixed, workflow_fixed = dmc_helpers.load_model_specs(model_specs_fixed, network_name_fixed)
+simulator_fixed = DMC(**model_specs_fixed['simulation_settings'])
 
-simulator_estimated, adapter_estimated, inference_net_estimated, summary_net_estimated, workflow_estimated = dmc_helpers.load_model_specs(model_specs_estimated, network_name_estimated)
+simulator_estimated  = DMC(**model_specs_estimated['simulation_settings'])
 
 ## Load Approximator
 
@@ -101,7 +103,7 @@ n_sims = 200
 
 fig, axes = plt.subplots(2,2)
 
-model_titles = ['$sd_r \\ estimated$', '$sd_r = 0$']
+model_titles = ['$sd_r \\ estimated$', '$sd_r \\ fixed$']
 
 alpha = 0.03
 
@@ -189,4 +191,4 @@ if test:
     suffix = suffix + '_test'
 
 
-fig.savefig(parent_dir + '/plots/prior_predictive_check/' + plot_name + suffix + '.png', dpi=600)
+fig.savefig(parent_dir + '/bf_dmc/plots/prior_predictive_check/' + plot_name + suffix + '.png', dpi=600)
