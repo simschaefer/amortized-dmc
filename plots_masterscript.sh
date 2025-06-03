@@ -1,11 +1,16 @@
 #!/bin/bash
 
 # List of Python files
-#files=("posterior_predictive_check_delta_functions.py" "posterior_predictive_check.py" "experimental_effects.py")
+#
+#"posterior_predictive_check_delta_functions.py"
+#
+#files=("posterior_predictive_check.py" "experimental_effects.py")
 
 #files=("diagnostics.py")
 
-files=("prior_predictive_check.py")
+#files=("prior_predictive_check.py")
+
+files=("metrics_num_obs.py")
 
 # Check if the argument is provided
 if [ -z "$1" ]; then
@@ -24,7 +29,7 @@ network_name2="$2"
 num_obs=200
 host="local"
 #network_name2="dmc_optimized_winsim_priors_sdr_estimated_200_810183"
-repetitions=1000
+repetitions=10
 data_sets=100
 num_resims=100
 
