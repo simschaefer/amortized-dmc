@@ -13,7 +13,7 @@ plots.zip
 bf_dmc/data/training_checkpoints/test.keras
 model_specs/*
 plots_masterscript.sh
-
+plots_allmodels.sh
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

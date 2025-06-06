@@ -51,10 +51,10 @@ wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_dat
 empirical_data = pd.concat([narrow_data, wide_data])
 empirical_data["condition_label"] = empirical_data["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
 
-
-train_idx = np.array([6361, 5281, 6214, 1108, 1538,  833, 4222,  275, 8755, 5281, 4222,
-        985, 1601, 8788,  845, 4222, 8785, 3286, 1761, 3625, 3625, 1583,
-    6844, 7768, 3754,  833, 1821, 7828,  275, 3754, 1657, 5815, 1583])
+train_idx = np.array([1761, 5281,  845, 1824, 5575, 8755, 8026, 8704, 7813, 1597, 7756,
+       7624, 1108,  837, 7828, 6055,  833, 1821,  985, 1582, 8311, 8785,
+       3286, 4264, 6583, 3487, 6565, 6427, 1430, 6361, 5815, 6262, 5332,
+       1614, 7939, 6214, 8521])
 
 
 empirical_data = empirical_data[~empirical_data['participant'].isin(train_idx)]

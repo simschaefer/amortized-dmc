@@ -58,7 +58,7 @@ all_parts = empirical_data['participant'].unique()
 train_idx = np.array([1761, 5281,  845, 1824, 5575, 8755, 8026, 8704, 7813, 1597, 7756,
        7624, 1108,  837, 7828, 6055,  833, 1821,  985, 1582, 8311, 8785,
        3286, 4264, 6583, 3487, 6565, 6427, 1430, 6361, 5815, 6262, 5332,
-       1614, 7939, 6214, 8521])
+       1614, 7939, 6214])
 
 
 train_data_narrow = narrow_data[narrow_data['participant'].isin(train_idx)]

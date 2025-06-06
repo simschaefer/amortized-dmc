@@ -4,6 +4,10 @@ import time
 import bayesflow as bf
 from dmc import DMC
 import copy
+import warnings
+import seaborn as sns
+import arviz as az
+import matplotlib.pyplot as plt
 
 
 def load_model_specs(model_specs, network_name):
@@ -220,3 +224,97 @@ def param_labels(param_names):
         param_labels = param_labels[0]
         
     return param_labels
+
+
+def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=True, subj_id='Subject', hdi_color='black', hdi_alpha=1, x_prop=0.05, y_prop=0.85, text_rotation=0, zero_line=True, x_lower=-1.2, x_upper=1.2):
+
+    num_params = len(param_names)
+    cohens_ds = np.ones((num_samples,num_params))
+
+    parts = samples1[subj_id].unique()
+
+
+    samples1.sort_values(by=subj_id, inplace=True)
+    samples2.sort_values(by=subj_id, inplace=True)
+
+    samples1['sample_id'] = np.tile(np.arange(0,num_samples), parts.shape[0])
+    samples2['sample_id'] = np.tile(np.arange(0,num_samples), parts.shape[0])
+
+    for j,p in enumerate(param_names):
+        for i in range(0, num_samples):
+            # control condition
+            m1 = samples1[samples1['sample_id'] == i][p]
+            #m1 = m1[~np.isnan(m1)]
+
+            # experimental manipulation
+            m2 = samples2[samples2['sample_id'] == i][p]
+            #m2 = m2[~np.isnan(m2)]
+
+            if set(samples1[samples1['sample_id'] == i][subj_id].unique()) != set(parts):
+                warnings.warn(f'Participants in sub sample 1 and sample id {i} are not identical to all participants!')
+            
+            if set(samples2[samples2['sample_id'] == i][subj_id].unique()) != set(parts):
+                warnings.warn(f'Participants in sub sample 2 and sample id {i} are not identical to all participants!')
+
+            if m1.shape[0] != parts.shape[0] or m2.shape[0] != parts.shape[0]:
+                warnings.warn(f'Mismatch in number of entries in sample id {i}')
+
+
+            d = np.mean(m1) - np.mean(m2)
+            mean_d = d/np.std(m1 - m2)
+
+            cohens_ds[i,j] = mean_d
+
+    data_d = pd.DataFrame(cohens_ds, columns = param_names)
+
+    
+    fig, axes = plt.subplots(1, len(param_names), figsize=(15,3), sharex=sharex)
+
+    for p, ax in zip(param_names, axes):
+
+        #sns.kdeplot(data=data_d, x=p, ax=ax, color=hdi_color, fill=True, alpha=hdi_alpha)
+        ax.set_xlim(x_lower, x_upper)
+
+        post_mean = np.mean(data_d[p])
+        ax.axvline(x=post_mean, color='black', linestyle='--', linewidth=1)
+
+        if zero_line:
+            ax.axvline(x=0, color='red', linestyle='-', linewidth=1)
+
+        #ax.set_xlim(x_lower, x_upper)
+        hdi_bounds = az.hdi(data_d[p].values, hdi_prob=0.95)
+
+        # HDI as shaded region with a different, subtle color
+        sns.kdeplot(data=data_d, x=p, ax=ax, color='#132a70', fill=True, alpha=0.3,linewidth=0)
+        ax.axvspan(ax.get_xlim()[0], hdi_bounds[0], color='white', alpha=1)  # Left of HDI
+        ax.axvspan(hdi_bounds[1], ax.get_xlim()[1], color='white', alpha=1)  # Right of HDI
+        sns.kdeplot(data=data_d, x=p, ax=ax, color='#132a70', fill=False, alpha=1,linewidth=1)
+
+
+        #ax.axvline(hdi_bounds[0], color='gray', linestyle='--')
+        #ax.axvline(hdi_bounds[1], color='gray', linestyle='--')
+
+        suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
+
+        label = suff + p + "$"
+
+        ax.set_title(label)
+        ax.set_xlabel('')
+
+        if p == 'A':
+            ax.set_ylabel('Density')
+        else:
+            ax.set_ylabel('')
+
+        ymax = ax.get_ylim()[1]
+        xmin = ax.get_xlim()[0]
+        xmax = ax.get_xlim()[1]
+
+        x_range = xmax-xmin
+
+        ax.text(xmin + x_range*x_prop, ymax*y_prop, '$d = $' + str(round(post_mean, 2)), fontsize=12, color='black', rotation=0)
+    
+    fig.supxlabel('Standardized Mean Difference $d_i$', fontsize=14)
+    fig.tight_layout()
+
+    return data_d, fig

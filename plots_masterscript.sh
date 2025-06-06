@@ -1,16 +1,19 @@
 #!/bin/bash
 
-# List of Python files
-#
+# needs 2 network names! (1: sdr fixed vs. 2: estimated)
 #"posterior_predictive_check_delta_functions.py"
 #
 #files=("posterior_predictive_check.py" "experimental_effects.py")
+
+files=("experimental_effects.py")
 
 #files=("diagnostics.py")
 
 #files=("prior_predictive_check.py")
 
-files=("metrics_num_obs.py")
+#files=("metrics_num_obs.py")
+
+#files=("posterior_reliability.py")
 
 # Check if the argument is provided
 if [ -z "$1" ]; then

@@ -54,6 +54,16 @@ approximator = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_check
 narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
 wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
 
+
+train_idx = np.array([1761, 5281,  845, 1824, 5575, 8755, 8026, 8704, 7813, 1597, 7756,
+       7624, 1108,  837, 7828, 6055,  833, 1821,  985, 1582, 8311, 8785,
+       3286, 4264, 6583, 3487, 6565, 6427, 1430, 6361, 5815, 6262, 5332,
+       1614, 7939, 6214])
+
+
+narrow_data = narrow_data[~narrow_data['participant'].isin(train_idx)]
+wide_data = wide_data[~wide_data['participant'].isin(train_idx)]
+
 # concatenate data from both spacing conditions
 empirical_data = pd.concat([narrow_data, wide_data])
 
@@ -118,57 +128,6 @@ for i, part in enumerate(parts):
     fig.savefig(network_plot_folder + "/experimental_effects_" + network_name + str(part) + ".png")
 
 
-fig, axes = plt.subplots(1, 5, figsize=(15,3))
-
-#samples_complete_filtered = samples_complete[samples_complete["participant"].isin([275])].reset_index()
-
-for i, ax in enumerate(axes):
-
-    sns.kdeplot(data=samples_complete.reset_index(), x=param_names[i], ax=ax, hue='spacing')
-    if i < 4:
-        ax.legend_.remove()
-
-fig.tight_layout()
-
-pd.DataFrame(samples_complete.reset_index().pivot(index=['participant', 'sampling_time'], columns=['A', 'tau']))
-
-
-samples_narrow.columns = [name + '_narrow' for name in samples_narrow.columns]
-samples_wide.columns = [name + '_wide' for name in samples_wide.columns]
-
-sample_com_wide = pd.concat([samples_narrow, samples_wide], axis=1)
-
-for p in param_names:
-
-    sample_com_wide['d_'+ p] = sample_com_wide[p + '_narrow'] - sample_com_wide[p + '_wide']
-
-    sample_com_wide['d_'+ p] = sample_com_wide['d_'+ p] / np.std(sample_com_wide['d_'+ p])
-
-
-
-fig, axes = plt.subplots(1, len(param_names), sharey=True, sharex=True, figsize=(15,3))
-
-for i, ax in enumerate(axes):
-
-    ax.set_xlim(-5,5)
-
-    sns.kdeplot(data=sample_com_wide.reset_index(), x= 'd_' + param_names[i], ax=ax, color='#132a70', fill=True)
-
-    post_mean = np.mean(sample_com_wide['d_' + param_names[i]])
-    ax.axvline(x=post_mean, color='black', linestyle='--', linewidth=1)
-
-    suff = "$\\" if param_names[i] in ["tau", "mu_c", "mu_r"] else "$"
-
-    label = suff + param_names[i] + "$"
-
-    ax.set_title(label)
-    ax.set_xlabel('Post Samples Difference')
- 
-
-    ax.text(post_mean + 1.1, 0.4, '$d = $' + str(round(post_mean, 2)), fontsize=12, color='black')
-
-
-fig.tight_layout()
-
+data, fig = dmc_helpers.cohens_d_samples(samples_narrow, samples_wide, param_names, num_samples=1000, subj_id='participant', hdi_color='white', sharex=False)
 
 fig.savefig(network_plot_folder + "/experimental_effects_" + network_name + "_post_samples_difference.png")
