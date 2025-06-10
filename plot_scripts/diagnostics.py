@@ -99,7 +99,7 @@ workflow.approximator = approximator
 
 simulator.fixed_num_obs = fixed_n_obs
 
-val_data = simulator.sample(1000)
+val_data = simulator.sample(200)
 n_obs = val_data['rt'].shape[1]
 
 print(f' {n_obs}')

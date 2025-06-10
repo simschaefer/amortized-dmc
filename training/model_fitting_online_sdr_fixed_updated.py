@@ -154,6 +154,10 @@ def param_labels(param_names):
     return param_labels
 
 
+simulator.fixed_num_obs = 300
+
+val_data = simulator.sample(500)
+
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 
