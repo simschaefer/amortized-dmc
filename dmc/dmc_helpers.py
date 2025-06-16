@@ -126,19 +126,25 @@ def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sb
     
     return weighted_sum
 
-
 def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
     
-    # generate random indices for random draws of posterior samples for resimulation
-    random_idx = np.random.choice(np.arange(0,post_sample_data.shape[0]), size = num_resims)
-
     # convert to dict (allow differing number of samples per parameter)
     resim_samples = dict(post_sample_data)
+
+    # count excluded samples
+    excluded_samples = dict()
+
+    excluded_samples['num_samples'] = post_sample_data.shape[0]
+    excluded_samples["participant"] = part
 
     # exclude negative samples
     for k, dat in resim_samples.items():
         if k in param_names:
-            resim_samples[k] = dat.values[dat.values >= 0]
+            samples = dat.values[dat.values >= 0]
+            np.random.shuffle(samples)
+            resim_samples[k] = samples
+
+            excluded_samples[k] = dat.values[dat.values < 0].shape[0]
 
     # adjust number of trials in simulator (should be equal to the number of trials in the empirical data)
     # simulator.num_obs=num_obs
@@ -174,6 +180,7 @@ def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, para
     resim_complete = pd.concat(list_resim_dfs)
     
     return resim_complete
+
 
 def delta_functions(data, quantiles = np.arange(0,1, 0.1), 
                   grouping_labels=["participant", "condition_label"],

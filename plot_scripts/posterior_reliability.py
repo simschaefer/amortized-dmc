@@ -244,6 +244,8 @@ for p, ax in zip(param_names, axes):
 rel_table['network_name'] = network_name
 rel_table['data_set'] = 'empirical_study'
 
+rel_table['spacing'] = np.array(['narrow', 'wide'])
+
 rel_table.to_csv(parent_dir + '/bf_dmc/data/reliability/reliabilities_uncorrected_' + network_name + '.csv')
 
 fig.tight_layout

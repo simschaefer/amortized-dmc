@@ -22,17 +22,14 @@ parent_dir = '/home/administrator/Documents/bf_dmc'
 #'dmc_optimized_updated_priors_sdr_fixed_200_797801',
 #'dmc_optimized_updated_priors_sdr_estimated_200_797802'
 
-
-
-network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_818801'
-
+network_name = 'dmc_optimized_updated_priors_sdr_fixed_200_821685'
 
 import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 import pandas as pd
 
-
+n_trials = 200
 
 simulators = []
 approximators = []
@@ -47,16 +44,14 @@ param_names = model_specs['simulation_settings']['param_names']
 simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
 approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
 
-
-
+simulator.fixed_num_obs = n_trials
 
 df_list = []
 df_samples_lst = []
 
-num_sims = 1000
+num_sims = 500
 
 for sim_idx in range(0, num_sims):
-
 
     data_keys = ('rt', 'accuracy', 'conditions') + param_names
 
@@ -108,6 +103,6 @@ df_complete = pd.concat(df_list)
 df_samples_complete = pd.concat(df_samples_lst)
 
 
-df_samples_complete.to_csv(parent_dir + '/data/simulated_data/' + network_name + '_samples.csv')
-df_complete.to_csv(parent_dir + '/data/simulated_data/' + network_name + '_data.csv')
+df_samples_complete.to_csv(parent_dir + '/data/simulated_data/' + network_name+ '_' + str(n_trials) + '_samples.csv')
+df_complete.to_csv(parent_dir + '/data/simulated_data/' + network_name + '_' + str(n_trials) + '_trials_data.csv')
 
