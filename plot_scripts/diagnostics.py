@@ -15,39 +15,36 @@ import seaborn as sns
 
 import matplotlib.pyplot as plt
 
+# get arguments:
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
 host = str(arguments[1])
 fixed_n_obs = int(arguments[2])
 
+# set working directory (local/mogon)
 if host == 'local':
     parent_dir = '/home/administrator/Documents'
 else:
     parent_dir = os.getcwd()
 
-#dmc_module_dir = parent_dir + '/bf_dmc/dmc'
-
-
+# check working directory
 print(f'parent_dir: {parent_dir}', flush=True)
-#print(f'dmc_module_dir: {dmc_module_dir}')
-
-#sys.path.append(dmc_module_dir)
 
 
 import bayesflow as bf
 from dmc import DMC
 
+# load model specifications
 network_dir = parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras'
-
 
 model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-
+# set simulator
 simulator = DMC(**model_specs['simulation_settings'])
 
-
+# set adapter (sdr fixed /estimated)
 if simulator.sdr_fixed == 0:
 
     adapter = (
@@ -73,9 +70,9 @@ else:
 
 
 # Create inference net 
-if model_specs['inference_network_settings'] == 'FlowMatching':
+if model_specs['inference_network_settings']['network_type'] == 'FlowMatching':
 
-    inference_net = bf.networks.FlowMatching()
+    inference_net = bf.networks.FlowMatching(**model_specs['inference_network_settings'])
 
 else:
 

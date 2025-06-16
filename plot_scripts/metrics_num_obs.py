@@ -104,13 +104,15 @@ data_path = parent_dir + '/data/insilico/' + network_name
 if not os.path.exists(data_path):
     os.makedirs(data_path)
 
+data_set_metrics['metric_name'] = data_set_metrics['metric_name'].replace('Posterior Contraction', 'Contraction Factor')
+
 data_set_metrics.to_csv(data_path + '/' + network_name + '_metrics_num_obs.csv')
 ### PLOT n trials - metrics ###
 
 fig, axes = plt.subplots(1,len(model_specs['simulation_settings']['param_names']),sharey=True, figsize=(18,4))
 
-hue_order = ["Calibration Error", "Posterior Contraction", "NRMSE"]
-palette = {"Calibration Error": "#8a90a0", "Posterior Contraction": "#f28c38", "NRMSE": "#132a70"}
+hue_order = ["Calibration Error", "Contraction Factor", "NRMSE"]
+palette = {"Calibration Error": "#8a90a0", "Contraction Factor": "#f28c38", "NRMSE": "#132a70"}
 
 
 for p, ax in zip(model_specs['simulation_settings']['param_names'], axes):

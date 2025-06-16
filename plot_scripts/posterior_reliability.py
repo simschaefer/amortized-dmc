@@ -21,100 +21,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-parent_dir = os.getcwd()
-
-parent_dir = '/home/administrator/Documents'
-
-print(f'parent_dir: {parent_dir}', flush=True)
-
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
-
-print(f'parent_dir: {parent_dir}', flush=True)
-print(f'dmc_module_dir: {dmc_module_dir}')
-
-sys.path.append(dmc_module_dir)
-
-from dmc import DMC
-
-
+# get arguments
 arguments = sys.argv[1:]
 network_name = str(arguments[0])
+host = str(arguments[1])
 
-network_name = 'dmc_optimized_updated_priors_sdr_estimated_200_810188'
-#network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_805375'
 
+if host == 'local':
+    parent_dir = '/home/administrator/Documents'
+else:
+    parent_dir = os.getcwd()
+
+print(f'parent_dir: {parent_dir}', flush=True)
+
+from dmc import DMC, param_labels, format_empirical_data, fit_empirical_data
+
+# get model specifications
 model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-
-def param_labels(param_names):
-
-    param_labels = []
-
-    for p in param_names:
-
-        suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
-
-        param_labels.append(suff + p + "$")
-
-    if len(param_labels) <= 1:
-        param_labels = param_labels[0]
-        
-    return param_labels
-
-
-def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
-    
-    # extract relveant variables
-    data_np = data[var_names].values
-
-    # convert to dictionary
-    inference_data = dict(rt=data_np[:,0],
-                          accuracy=data_np[:,1],
-                          conditions=data_np[:,2])
-
-    # add dimensions so it fits training data
-    inference_data = {k: v[np.newaxis,..., np.newaxis] for k, v in inference_data.items()}
-
-    # adjust dimensions of num_obs
-    inference_data["num_obs"] = np.array([data_np.shape[0]])[:,np.newaxis]
-    
-    return inference_data
-
-
-def fit_empirical_data(data, approximator, id_label="participant"):
-
-    ids=data[id_label].unique()
-
-    list_data_samples=[]
-
-    for i, id in enumerate(ids):
-        
-        part_data = data[data[id_label]==id]
-        
-        part_data = format_empirical_data(part_data)
-        
-        start_time=time.time()
-        samples = approximator.sample(conditions=part_data, num_samples=1000)
-        end_time=time.time()
-        
-        sampling_time=end_time-start_time
-
-        samples_2d={k: v.flatten() for k, v in samples.items()}
-        
-        data_samples=pd.DataFrame(samples_2d)
-        
-        data_samples[id_label]=id
-        data_samples["sampling_time"]=sampling_time
-        
-        list_data_samples.append(data_samples)
-
-    data_samples_complete=pd.concat(list_data_samples)
-
-    return data_samples_complete
-
-
+# set simulator
 simulator = DMC(**model_specs['simulation_settings'])
 
 ## Load Approximator
@@ -134,10 +61,10 @@ included_parts = np.array([
 
 
 narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow_reliability.csv')
-narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
+#narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
 
 wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide_reliability.csv')
-wide_data = wide_data[wide_data['participant'].isin(included_parts)]
+#wide_data = wide_data[wide_data['participant'].isin(included_parts)]
 
 empirical_data = pd.concat([narrow_data, wide_data])
 
@@ -145,7 +72,7 @@ data_count = empirical_data.groupby('participant').count()
 
 
 
-empirical_data = empirical_data[empirical_data['participant'].isin(included_parts)]
+#empirical_data = empirical_data[empirical_data['participant'].isin(included_parts)]
 
 parts = empirical_data['participant'].unique()
 
@@ -154,24 +81,10 @@ narrow_data_even=narrow_data[narrow_data['n_trial_experiment'] % 2 == 0]
 
 narrow_data_odd=narrow_data[narrow_data['n_trial_experiment'] % 2 != 0]
 
-# trials per participant
-sns.histplot(narrow_data_even.groupby('participant').count(), x='accuracy', label = 'even narrow')
-
-# trials per participant
-sns.histplot(narrow_data_odd.groupby('participant').count(), x='accuracy', label = 'odd narrow')
-
 # split wide data
 wide_data_even=wide_data[wide_data['n_trial_experiment'] % 2 == 0]
 
 wide_data_odd=wide_data[wide_data['n_trial_experiment'] % 2 != 0]
-
-# trials per participant
-sns.histplot(wide_data_even.groupby('participant').count(), x='accuracy', label = 'even wide')
-
-# trials per participant
-sns.histplot(wide_data_odd.groupby('participant').count(), x='accuracy', label = 'odd wide')
-
-plt.legend()
 
 
 # Sample Individual Posterior Samples NARROW
@@ -183,67 +96,6 @@ post_samples_narrow_odd = fit_empirical_data(narrow_data_odd, approximator)
 post_samples_wide_even = fit_empirical_data(wide_data_even, approximator)
 
 post_samples_wide_odd = fit_empirical_data(wide_data_odd, approximator)
-
-# inspect samples
-
-
-fig, axes = plt.subplots(1, len(param_names), figsize=(15,3))
-
-axes.flatten()
-for p in parts:
-
-    for i, param in enumerate(param_names):
-
-        sns.kdeplot(post_samples_narrow_even.reset_index(), hue='participant', x=param, ax=axes[i], legend=False)
-    
-fig.suptitle('Posterior Samples Narrow Even')
-fig.tight_layout()
-
-
-
-fig, axes = plt.subplots(1, len(param_names), figsize=(15,3))
-
-axes.flatten()
-for p in parts:
-
-    for i, param in enumerate(param_names):
-
-        sns.kdeplot(post_samples_narrow_odd.reset_index(), hue='participant', x=param, ax=axes[i], legend=False)
-    
-fig.suptitle('Posterior Samples Narrow Odd')
-fig.tight_layout()
-
-
-
-fig, axes = plt.subplots(1, len(param_names), figsize=(15,3))
-
-axes.flatten()
-for p in parts:
-
-    for i, param in enumerate(param_names):
-
-        sns.kdeplot(post_samples_wide_even.reset_index(), hue='participant', x=param, ax=axes[i], legend=False)
-    
-fig.suptitle('Posterior Samples Wide Even')
-fig.tight_layout()
-
-
-
-fig, axes = plt.subplots(1, len(param_names), figsize=(15,3))
-
-axes.flatten()
-for p in parts:
-
-    for i, param in enumerate(param_names):
-
-        sns.kdeplot(post_samples_wide_odd.reset_index(), hue='participant', x=param, ax=axes[i], legend=False)
-    
-fig.suptitle('Posterior Samples Wide Odd')
-fig.tight_layout()
-
-
-
-
 
 
 # Index Samples per participant ODD
@@ -298,8 +150,8 @@ for idx in np.arange(0,1000):
 
 corr_data_narrow = pd.DataFrame(corr_arr, columns=param_names)
 
-post_means_odd_narrow = post_samples_narrow_odd.groupby('participant').mean()
-post_means_even_narrow = post_samples_narrow_even.groupby('participant').mean()
+post_means_odd_narrow = post_samples_narrow_odd.groupby('participant').mean().reset_index()
+post_means_even_narrow = post_samples_narrow_even.groupby('participant').mean().reset_index()
 
 
 
@@ -318,8 +170,8 @@ for idx in np.arange(0,1000):
 
 corr_data_wide = pd.DataFrame(corr_arr, columns=param_names)
 
-post_means_odd_wide = post_samples_wide_odd.groupby('participant').mean()
-post_means_even_wide = post_samples_wide_even.groupby('participant').mean()
+post_means_odd_wide = post_samples_wide_odd.groupby('participant').mean().reset_index()
+post_means_even_wide = post_samples_wide_even.groupby('participant').mean().reset_index()
 
 
 network_plot_folder = parent_dir + "/bf_dmc/plots/plots_reliability/" + network_name
@@ -336,11 +188,20 @@ rel_table = pd.DataFrame(np.ones((2, len(param_names))))
 
 rel_table.columns = param_names
 
+if np.sum(post_means_even_wide['participant'] != post_means_odd_wide['participant']) != 0:
+    print('Part ID does not correspond between odd and even trials (wide)!', flush = True)
+
+elif np.sum(post_means_even_narrow['participant'] != post_means_odd_narrow['participant']) != 0:
+    print('Part ID does not correspond between odd and even trials (wide)!', flush = True)
+
+else:
+    print('Part ID correspond between odd and even trials.', flush = True)
+
+
 #%%
 fig, axes = plt.subplots(1, len(param_names), figsize=(15, 3))
 
 for p, ax in zip(param_names, axes):
-    #ax.plot(post_samples_narrow_odd[p], post_samples_narrow_even[p], "o")
 
     ax.plot(post_means_odd_narrow[p], post_means_even_narrow[p], "o", color='#132a70', alpha=0.7, label = 'Narrow')
 
@@ -388,27 +249,3 @@ fig.tight_layout
 
 fig.savefig(network_plot_folder + '/plot_reliability_' + network_name + '_scatterplot.png')
 
-
-# %%
-#fig, axes = plt.subplots(1, 5, figsize=(15, 3))#
-
-#for p, ax in zip(param_names, axes):
-#    ax.hist(corr_data[p])
-#    ax.set_title(param_labels([p]))
-
-#fig.tight_layout()
-
-#fig.savefig(network_plot_folder + '/plot_reliability_hist_' + network_name + '.png')
-
-
-# %%
-#fig, axes = plt.subplots(1, 5, figsize=(15, 3))
-
-#for p, ax in zip(param_names, axes):
-#    sns.kdeplot(data=corr_data, x=p, ax=ax)
-#    ax.set_title(param_labels([p]))
-
-#fig.tight_layout() 
-
-#fig.savefig(network_plot_folder + '/plot_reliability_kde_' + network_name + '.png')
-# %%
