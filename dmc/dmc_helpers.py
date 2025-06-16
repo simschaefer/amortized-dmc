@@ -6,8 +6,44 @@ from dmc import DMC
 import copy
 import warnings
 import seaborn as sns
-import arviz as az
 import matplotlib.pyplot as plt
+
+
+def hdi(samples, hdi_prob=0.95):
+    """
+    Compute the Highest Density Interval (HDI) of a sample distribution.
+
+    Parameters
+    ----------
+    samples : array-like
+        1D array of posterior samples.
+    hdi_prob : float
+        The desired probability for the HDI (e.g., 0.95 for 95% HDI).
+
+    Returns
+    -------
+    hdi_interval : tuple
+        Lower and upper bounds of the HDI.
+    """
+    samples = np.asarray(samples)
+    if samples.ndim != 1:
+        raise ValueError("Only 1D arrays are supported.")
+    
+    sorted_samples = np.sort(samples)
+    n_samples = len(sorted_samples)
+    interval_idx_inc = int(np.floor(hdi_prob * n_samples))
+    n_intervals = n_samples - interval_idx_inc
+
+    if n_intervals <= 0:
+        raise ValueError("Not enough samples for the desired HDI probability.")
+
+    intervals = sorted_samples[interval_idx_inc:] - sorted_samples[:n_intervals]
+    min_idx = np.argmin(intervals)
+
+    hdi_min = sorted_samples[min_idx]
+    hdi_max = sorted_samples[min_idx + interval_idx_inc]
+
+    return hdi_min, hdi_max
 
 
 def load_model_specs(model_specs, network_name):
@@ -289,7 +325,7 @@ def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=T
             ax.axvline(x=0, color='red', linestyle='-', linewidth=1)
 
         #ax.set_xlim(x_lower, x_upper)
-        hdi_bounds = az.hdi(data_d[p].values, hdi_prob=0.95)
+        hdi_bounds = hdi(data_d[p].values, hdi_prob=0.95)
 
         # HDI as shaded region with a different, subtle color
         sns.kdeplot(data=data_d, x=p, ax=ax, color='#132a70', fill=True, alpha=0.3,linewidth=0)
