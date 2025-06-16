@@ -31,7 +31,7 @@ if host == 'local':
 else:
     parent_dir = os.getcwd()
 
-
+fontsize = 18
 
 print(f'parent_dir: {parent_dir}', flush=True)
 
@@ -135,17 +135,20 @@ for p, ax in zip(model_specs['simulation_settings']['param_names'], axes):
                     palette=palette,
                     legend=False)
     
-    ax.set_title(label)
-    ax.legend(title="")
+    ax.set_title(label, fontsize=fontsize)
+    legend = ax.legend(title="", fontsize=fontsize - 4) 
     if p != model_specs['simulation_settings']['param_names'][-1]:
         ax.get_legend().remove()
     
+    ax.set_ylabel("Metric Value", fontsize=fontsize)
     ax.set_xlabel("")
+    ax.tick_params(axis='x', labelsize=fontsize - 4)  
+    ax.tick_params(axis='y', labelsize=fontsize - 4)
 
     # plt.ylim(0, 1)
 
 
-fig.supxlabel("Number of Observations", fontsize=12) 
+fig.supxlabel("Number of Observations", fontsize=fontsize) 
 fig.tight_layout()
 
 fig.savefig(network_plot_folder + '/metrics_num_obs_' + network_name + '_random.png')

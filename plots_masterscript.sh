@@ -5,13 +5,13 @@
 #
 #files=("posterior_predictive_check.py" "experimental_effects.py")
 
-files=("experimental_effects.py")
+#files=("experimental_effects.py")
 
 #files=("diagnostics.py")
 
 #files=("prior_predictive_check.py")
 
-#files=("metrics_num_obs.py")
+files=("metrics_num_obs.py")
 
 #files=("posterior_reliability.py")
 
@@ -32,7 +32,7 @@ network_name2="$2"
 num_obs=200
 host="local"
 #network_name2="dmc_optimized_winsim_priors_sdr_estimated_200_810183"
-repetitions=10
+repetitions=1
 data_sets=100
 num_resims=100
 
