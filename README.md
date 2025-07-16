@@ -5,12 +5,48 @@ This repository contains the work of Schaefer et al. (2025).
 We propose a **generalized Amortized Bayesian Workflow** to yield optimal performance in the parameter estimation of cognitive models as well as pretrained networks for Amortized Bayesian Inference of the **Diffusion Model for Conflict Tasks** (Ulrich et al., 2015).
 
 
-![flowchart](figures/flowchart.png)
+![](figures/flowchart.png)
 
 
 ## 🚀 Getting Started
 
+### Download the Code
 
+First, open a terminal and navigate to the directory where you want to store the project. Then, run the following command to clone the repository to your local machine:
+
+```
+git clone https://github.com/simschaefer/amortized_dmc.git
+```
+
+Alternatively, download the repository by clicking at `Code` on the right hand side, click `Download ZIP` and extract the .zip file in the directory where you want to store the project.
+
+### Install Dependencies
+
+All packages that were used in this project are listed in `requirements.txt`. Create a fresh conda environment `amortized_dmc` with all dependencies:
+
+```
+conda create --name amortized_dmc --file requirements.txt
+```
+
+and activate the environment:
+
+```
+conda activate amortized_dmc
+```
+
+## Introduction
+
+The content in this repository enables you to:
+
+* Replicate the findings of the paper
+* Apply the trained networks to new empirical data
+* Train new networks from scratch
+
+For a comprehensive introduction to each of these topics, see the notebooks in the folder `notebooks/`:
+
+1. [DMC Introduction](notebooks/dmc_introduction.ipynb)
+2. [Apply Networks to Empirical Data](notebooks/apply_pretrained_networks.ipynb)
+3. [Train New Networks](notebooks/apply_pretrained_networks.ipynb)
 
 ## 📁 Repository Structure
 
@@ -18,7 +54,17 @@ We propose a **generalized Amortized Bayesian Workflow** to yield optimal perfor
 
   Includes the simulator function `DMC()` in `dmc_simulator.py` as well as helper functions to fit empirical data in `dmc_helpers.py`
   
+* **`empirical_data/`**
   
+  Includes data from the experiment seperately for each spacing condition:
+    * Narrow spacing: `experiment_data_narrow.csv`
+    * Wide spacing: `experiment_data_wide.csv`
+
+    
+* **`model_specs/`**
+
+  Stored information about training hyperparameters, network hyperparameters and simulator specifications used for the training of all networks. The names correspond with those of the pretrained networks.
+
 * **`notebooks/`**
 
   Comprehensive examples for
@@ -34,6 +80,10 @@ We propose a **generalized Amortized Bayesian Workflow** to yield optimal perfor
 * **`training/`**
 
   Includes the scripts used in the **Training Phases** to train all four networks based on either initial or updated priors and either including or excluding trial-to-trial variability of the non-decision time.
+
+* **`training_checkpoints/`**
+
+  Includes the checkpoints of the trained networks for each condition.
   
 * **`plot_scripts/`**
 
@@ -43,8 +93,8 @@ We propose a **generalized Amortized Bayesian Workflow** to yield optimal perfor
   
   * **In Silico Evaluation** Phase:
   
-    * `diagnostics.py`: computation of all metrics for a fixed number of trials.
-    * `metrics_num_obs.py`: computation of Recovery, Simulation-Based Calibration and Posterior Contraction for a varying number of trials between 50 and 1000.
+    * `diagnostics.py`: computation of Recovery, Simulation-Based Calibration and Posterior Contraction for a fixed number of trials.
+    * `metrics_num_obs.py`: computation of all in silico metrics for a varying number of trials between 50 and 1000.
   
   * **Application to Empirical Data** Phase:
     * `experimental_effects.py`: computation of standardized mean differences between experimental conditions (narrow vs. wide stimuli spacing)
