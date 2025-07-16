@@ -12,7 +12,7 @@ We propose a **generalized Amortized Bayesian Workflow** to yield optimal perfor
 
 ### Download the Code
 
-First, open a terminal and navigate to the directory where you want to store the project. Then, run the following command to clone the repository to your local machine:
+First, open a terminal on your local machine and navigate to the directory where you want to store the project. Then, run the following command to clone the repository to your local machine:
 
 ```
 git clone https://github.com/simschaefer/amortized_dmc.git
