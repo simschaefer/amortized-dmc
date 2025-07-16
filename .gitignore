@@ -8,6 +8,8 @@ checkpoints/
 plots/
 data/*
 data/ceckpoints/*
+!data/empirical_data/experiment_data_narrow.csv
+!data/empirical_data/experiment_data_wide.csv
 playgrounds/*
 plots.zip
 bf_dmc/data/training_checkpoints/test.keras
