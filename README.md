@@ -4,7 +4,9 @@ This repository contains the work of Schaefer et al. (2025).
 
 We propose a generalized Amortized Bayesian Workflow to yield optimal performance in the parameter estimation of cognitive models as well as pretrained networks for Amortized Bayesian Inference of the Diffusion Model for Conflict Tasks (Ulrich et al., 2015).
 
-<img src="figures/flowchart.png" alt="Workflow" width="600"/>
+
+![flowchart](figures/flowchart.png)
+
 
 ## 📁 Repository Structure
 
