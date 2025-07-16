@@ -60,7 +60,7 @@ included_parts = np.array([
 ])
 
 
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow_reliability.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/clean_experiment_data_narrow_complete.csv')
 #narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
 
 wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide_reliability.csv')
@@ -255,65 +255,67 @@ fig.savefig(network_plot_folder + '/plot_reliability_' + network_name + '_scatte
 
 ## ACDC data sets
 
-data_sets = ['model_data_hedge_hedge1', 'model_data_hedge_hedge2', 'model_data_hedge_hedge3', 'model_data_hedge_hedge4', 'model_data_hedge_hedge5', 'model_data_hedge_whitehead1', 'model_data_hedge_whitehead2', 'model_data_hedge_whitehead3'] 
+if False:
 
-for ds in data_sets:
+    data_sets = ['model_data_hedge_hedge1', 'model_data_hedge_hedge2', 'model_data_hedge_hedge3', 'model_data_hedge_hedge4', 'model_data_hedge_hedge5', 'model_data_hedge_whitehead1', 'model_data_hedge_whitehead2', 'model_data_hedge_whitehead3'] 
 
-    data = pd.read_csv(parent_dir + '/bf_dmc/data/acdc/' + ds + '.csv')
+    for ds in data_sets:
 
-    data_even = data[data.iloc[:,0] % 2 == 0]
-    data_even.rename(columns={'RT': 'rt', 'corr_resp': 'accuracy'}, inplace=True)
+        data = pd.read_csv(parent_dir + '/bf_dmc/data/acdc/' + ds + '.csv')
 
-    data_odd = data[data.iloc[:,0] % 2 != 0]
-    data_odd.rename(columns={'RT': 'rt', 'corr_resp': 'accuracy'}, inplace=True)
+        data_even = data[data.iloc[:,0] % 2 == 0]
+        data_even.rename(columns={'RT': 'rt', 'corr_resp': 'accuracy'}, inplace=True)
 
-
-    post_samples_even = fit_empirical_data(data_even, approximator, id_label="participant")
-
-    post_samples_odd = fit_empirical_data(data_odd, approximator, id_label="participant")
+        data_odd = data[data.iloc[:,0] % 2 != 0]
+        data_odd.rename(columns={'RT': 'rt', 'corr_resp': 'accuracy'}, inplace=True)
 
 
-    post_means_even = post_samples_even.groupby('participant').mean().reset_index()
+        post_samples_even = fit_empirical_data(data_even, approximator, id_label="participant")
 
-    post_means_odd = post_samples_odd.groupby('participant').mean().reset_index()
-
-    rel_table = pd.DataFrame(np.ones((1, len(param_names))))
-
-    rel_table.columns = param_names
-
-    fig, axes = plt.subplots(1, len(param_names), figsize=(15, 3))
-
-    for p, ax in zip(param_names, axes):
-
-        ax.plot(post_means_even[p], post_means_odd[p], "o", color='#132a70', alpha=0.7)
-
-        ax.plot(
-            np.linspace(min(post_means_even[p]), max(post_means_even[p]), 100),
-            np.linspace(min(post_means_odd[p]), max(post_means_odd[p]), 100),
-            color='black'
-        )
-
-        corr = post_means_even[p].corr(post_means_odd[p])
-
-        rel_table[p][0] = corr
-
-        ax.text(0.98, 0.09, '$r_c$ = ' +  str(round(corr,2)),
-            transform=ax.transAxes,  # use axes coordinates
-            fontsize=12,
-            verticalalignment='bottom',  # align top of text at y=0.99
-            horizontalalignment='right',
-            color='#132a70')
-
-        ax.set_title(param_labels([p]))
-
-    fig.tight_layout()
-    fig.suptitle(ds)
-
-    fig.savefig(network_plot_folder + '/plot_reliability_' + network_name + '_' + ds + '_scatterplot.png')
+        post_samples_odd = fit_empirical_data(data_odd, approximator, id_label="participant")
 
 
-    rel_table['data_set'] = ds
+        post_means_even = post_samples_even.groupby('participant').mean().reset_index()
 
-    rel_table['network_name'] = network_name
+        post_means_odd = post_samples_odd.groupby('participant').mean().reset_index()
 
-    rel_table.to_csv(parent_dir + '/bf_dmc/data/reliability/reliabilities_uncorrected_' + network_name + '_' + ds + '.csv')
+        rel_table = pd.DataFrame(np.ones((1, len(param_names))))
+
+        rel_table.columns = param_names
+
+        fig, axes = plt.subplots(1, len(param_names), figsize=(15, 3))
+
+        for p, ax in zip(param_names, axes):
+
+            ax.plot(post_means_even[p], post_means_odd[p], "o", color='#132a70', alpha=0.7)
+
+            ax.plot(
+                np.linspace(min(post_means_even[p]), max(post_means_even[p]), 100),
+                np.linspace(min(post_means_odd[p]), max(post_means_odd[p]), 100),
+                color='black'
+            )
+
+            corr = post_means_even[p].corr(post_means_odd[p])
+
+            rel_table[p][0] = corr
+
+            ax.text(0.98, 0.09, '$r_c$ = ' +  str(round(corr,2)),
+                transform=ax.transAxes,  # use axes coordinates
+                fontsize=12,
+                verticalalignment='bottom',  # align top of text at y=0.99
+                horizontalalignment='right',
+                color='#132a70')
+
+            ax.set_title(param_labels([p]))
+
+        fig.tight_layout()
+        fig.suptitle(ds)
+
+        fig.savefig(network_plot_folder + '/plot_reliability_' + network_name + '_' + ds + '_scatterplot.png')
+
+
+        rel_table['data_set'] = ds
+
+        rel_table['network_name'] = network_name
+
+        rel_table.to_csv(parent_dir + '/bf_dmc/data/reliability/reliabilities_uncorrected_' + network_name + '_' + ds + '.csv')

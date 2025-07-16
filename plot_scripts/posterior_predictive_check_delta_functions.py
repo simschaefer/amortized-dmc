@@ -259,7 +259,7 @@ for part, ax in zip(parts, axes):
 
     quantile_data_wide_empirical_fixed = delta_functions(part_data, quantiles = np.arange(0, 1,0.1))
 
-    ax.plot(quantile_data_wide_resim_fixed["mean_qu"] ,quantile_data_wide_resim_fixed["delta"] ,"o", color='#132a70', label = '$sd_r$ fixed')
+    ax.plot(quantile_data_wide_resim_fixed["mean_qu"] ,quantile_data_wide_resim_fixed["delta"] ,"-", color='#132a70', label = '$sd_r$ fixed')
 
 
 
@@ -291,9 +291,9 @@ for part, ax in zip(parts, axes):
 
     quantile_data_wide_empirical = delta_functions(part_data, quantiles = np.arange(0, 1,0.1))
 
-    ax.plot(quantile_data_wide_resim_estimated["mean_qu"] ,quantile_data_wide_resim_estimated["delta"] ,"o", color = 'maroon', label = '$sd_r$ estimated')
+    ax.plot(quantile_data_wide_resim_estimated["mean_qu"] ,quantile_data_wide_resim_estimated["delta"] ,color = 'maroon', label = '$sd_r$ estimated')
 
-    ax.plot(quantile_data_wide_empirical["mean_qu"] ,quantile_data_wide_empirical["delta"], color='black')
+    ax.plot(quantile_data_wide_empirical["mean_qu"] ,quantile_data_wide_empirical["delta"],"o",  color='black')
 
 fig.tight_layout()
 #plt.legend(loc='upper left', bbox_to_anchor=(1, 1))

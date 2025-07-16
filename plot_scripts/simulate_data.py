@@ -22,14 +22,21 @@ parent_dir = '/home/administrator/Documents/bf_dmc'
 #'dmc_optimized_updated_priors_sdr_fixed_200_797801',
 #'dmc_optimized_updated_priors_sdr_estimated_200_797802'
 
-network_name = 'dmc_optimized_updated_priors_sdr_fixed_200_821685'
+network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_818802'
+
+#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_818801'
+
+#network_name = "dmc_optimized_updated_priors_sdr_estimated_200_821683"
+
+
+#network_name = "dmc_optimized_updated_priors_sdr_fixed_200_821685"
 
 import bayesflow as bf
 from dmc import DMC, dmc_helpers
 
 import pandas as pd
 
-n_trials = 200
+n_trials = 50
 
 simulators = []
 approximators = []

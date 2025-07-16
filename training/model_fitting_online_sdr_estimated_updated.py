@@ -40,7 +40,7 @@ sys.path.append(dmc_module_dir)
 
 from dmc import DMC
 
-num_batches_per_epoch = 1000
+num_batches_per_epoch = 250
 
 #########
 network_name = "dmc_optimized_updated_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
@@ -49,9 +49,12 @@ network_name = "dmc_optimized_updated_priors_sdr_estimated_" + str(epochs) + '_'
 print(network_name, flush=True)
 
 
+#A	tau	mu_c	mu_r	b	sd_r	participant	sampling_time
+#mean	20.487064	118.362138	0.571052	358.014712	61.003457	36.930012	4967.729730	18.617300
+#std	8.408001	37.602916	0.119613	24.267905	13.232774	8.608679	2823.744863	35.574207
 
-model_specs = {"simulation_settings": {"prior_means": np.array([20.55, 113.74, 0.57, 358.52, 59.1, 37.1]),
-                                       "prior_sds": np.array([7.39, 41.9, 0.11, 23.96, 10.6, 8.27]),
+model_specs = {"simulation_settings": {"prior_means": np.array([20.49, 118.36, 0.57, 358.01, 61.0, 36.93]),
+                                       "prior_sds": np.array([8.4, 37.6, 0.12, 24.27, 13.23, 8.6]),
                                        'sdr_fixed': None,
                                        "tmax": 1500,
                                        "contamination_probability": None,
@@ -59,13 +62,14 @@ model_specs = {"simulation_settings": {"prior_means": np.array([20.55, 113.74, 0
                                        "max_num_obs": 1000,
                                        "fixed_num_obs": None,
                                        'param_names': ("A", "tau", "mu_c", "mu_r", "b", "sd_r")},
-"inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.0100967297}}, "depth":10},
-"summary_network_settings": {"dropout": 0.0100967297,
-                             "num_seeds": 2,
-                             "summary_dim": 32,
+"inference_network_settings": {"network_type": 'FlowMatching',
+                               "dropout": 0.01070354852467715},
+"summary_network_settings": {"dropout": 0.01070354852467715,
+                             "num_seeds": 7,
+                             "summary_dim": 22,
                              "embed_dim": (128, 128)},
-                             'batch_size': 16,
-                             'learning_rate': 0.0004916,
+                             'batch_size': 64,
+                             'learning_rate': 0.0005721790353631461,
                              'epochs': epochs,
                              'num_batches_per_epoch': num_batches_per_epoch,
                              'start_time': datetime.now(),
@@ -92,7 +96,7 @@ adapter = (
 )
 
 
-inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
+inference_net = bf.networks.FlowMatching(coupling_kwargs=dict(subnet_kwargs=dict(dropout=model_specs["inference_network_settings"]["dropout"])))
 
 summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
@@ -148,10 +152,6 @@ def param_labels(param_names):
         
     return param_labels
 
-
-simulator.fixed_num_obs = 300
-
-val_data = simulator.sample(500)
 
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 

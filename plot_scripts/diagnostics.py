@@ -33,6 +33,7 @@ print(f'parent_dir: {parent_dir}', flush=True)
 
 import bayesflow as bf
 from dmc import DMC
+from dmc import dmc_helpers
 
 # load model specifications
 network_dir = parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras'
@@ -106,7 +107,7 @@ print(f' {n_obs}')
 
 #_ = workflow.sample(conditions=val_data, num_samples=100, strict=True)
 
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 plots_dir = parent_dir + '/bf_dmc/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)

@@ -32,6 +32,7 @@ parent_dir = os.getcwd()
 
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 
+
 print(f'parent_dir: {parent_dir}', flush=True)
 print(f'dmc_module_dir: {dmc_module_dir}')
 
@@ -39,7 +40,7 @@ sys.path.append(dmc_module_dir)
 
 from dmc import DMC
 
-num_batches_per_epoch = 1000
+num_batches_per_epoch = 250
 
 #########
 network_name = "dmc_optimized_winsim_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
@@ -58,13 +59,14 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
                                        "max_num_obs": 1000,
                                        "fixed_num_obs": None,
                                        'param_names': ("A", "tau", "mu_c", "mu_r", "b", "sd_r")},
-"inference_network_settings": {"coupling_kwargs": {"subnet_kwargs": {"dropout":0.0100967297}}, "depth":10},
-"summary_network_settings": {"dropout": 0.0100967297,
-                             "num_seeds": 2,
-                             "summary_dim": 32,
+"inference_network_settings": {"network_type": 'FlowMatching',
+                               "dropout": 0.01070354852467715},
+"summary_network_settings": {"dropout": 0.01070354852467715,
+                             "num_seeds": 7,
+                             "summary_dim": 22,
                              "embed_dim": (128, 128)},
-                             'batch_size': 16,
-                             'learning_rate': 0.0004916,
+                             'batch_size': 64,
+                             'learning_rate': 0.0005721790353631461,
                              'epochs': epochs,
                              'num_batches_per_epoch': num_batches_per_epoch,
                              'start_time': datetime.now(),
@@ -91,7 +93,8 @@ adapter = (
 )
 
 
-inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
+inference_net = bf.networks.FlowMatching(coupling_kwargs=dict(subnet_kwargs=dict(dropout=model_specs["inference_network_settings"]["dropout"])))
+
 
 summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
@@ -106,6 +109,23 @@ workflow = bf.BasicWorkflow(
     inference_variables=model_specs['simulation_settings']["param_names"],
     save_best_only=True
 )
+
+#total_steps = int(epochs * num_batches_per_epoch)
+#warmup_steps = int(0.05 * epochs * num_batches_per_epoch)
+#decay_steps = total_steps - warmup_steps
+
+# Default case
+#learning_rate = keras.optimizers.schedules.CosineDecay(
+#    initial_learning_rate=0.1 * model_specs['learning_rate'],
+#    warmup_target=model_specs['learning_rate'],
+#    warmup_steps=warmup_steps,
+#    decay_steps=decay_steps,
+#    alpha=0,
+#)
+
+#optimizer = keras.optimizers.AdamW(learning_rate, weight_decay=1e-3, clipnorm=model_specs['clipnorm'])
+
+#workflow.approximator.compile(optimizer=optimizer)
 
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
 
@@ -147,10 +167,6 @@ def param_labels(param_names):
         
     return param_labels
 
-
-simulator.fixed_num_obs = 300
-
-val_data = simulator.sample(500)
 
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 

@@ -191,4 +191,4 @@ if test:
     suffix = suffix + '_test'
 
 
-fig.savefig(parent_dir + '/bf_dmc/plots/prior_predictive_check/' + plot_name + suffix + '.png', dpi=600)
+fig.savefig(parent_dir + '/bf_dmc/plots/prior_predictive_check/' + plot_name + suffix + network_name_fixed + '_' + network_name_fixed +'.png', dpi=600)
