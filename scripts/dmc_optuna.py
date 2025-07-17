@@ -33,23 +33,6 @@ sys.path.append(dmc_module_dir)
 
 from dmc import DMC, dmc_helpers
 
-
-def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sbc=1):
-    
-    # recode posterior contraction
-    metrics_table.iloc[1,:]=1-metrics_table.iloc[1,:]
-
-    # compute means across parameters
-    metrics_means=metrics_table.mean(axis=1)
-
-    # decide on weights for each metric (Recovery, Posterior Contraction, SBC)
-    metrics_weights=np.array([weight_recovery, weight_pc, weight_sbc])
-
-    # compute weighted sum
-    weighted_sum=np.dot(metrics_means, metrics_weights)
-    
-    return weighted_sum
-
 network_name = "sdr_estimated_initial_50trials"
 n_trials = 50
 n_epochs = 50
