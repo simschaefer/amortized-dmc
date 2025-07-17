@@ -10,33 +10,29 @@ if "KERAS_BACKEND" not in os.environ:
 import numpy as np
 import pickle
 
-import keras
-import seaborn as sns
-
 import matplotlib.pyplot as plt
 import time
+import os
 
-
-parent_dir = '/home/administrator/Documents/bf_dmc'
+parent_dir = os.path.dirname(os.getcwd())
 
 #'dmc_optimized_updated_priors_sdr_fixed_200_797801',
 #'dmc_optimized_updated_priors_sdr_estimated_200_797802'
 
-network_name = 'initial_priors_sdr_estimated'
+#network_name = 'initial_priors_sdr_estimated'
 
-#network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_818801'
+network_name = 'initial_priors_sdr_fixed'
 
-#network_name = "dmc_optimized_updated_priors_sdr_estimated_200_821683"
+#network_name = "updated_priors_sdr_estimated"
 
-
-#network_name = "dmc_optimized_updated_priors_sdr_fixed_200_821685"
+#network_name = "updated_priors_sdr_fixed"
 
 import bayesflow as bf
-from dmc import DMC, dmc_helpers
+from dmc import dmc_helpers
 
 import pandas as pd
 
-n_trials = 50
+n_trials = 200
 
 simulators = []
 approximators = []
@@ -110,6 +106,6 @@ df_complete = pd.concat(df_list)
 df_samples_complete = pd.concat(df_samples_lst)
 
 
-df_samples_complete.to_csv(parent_dir + '/data/simulated_data/' + network_name+ '_' + str(n_trials) + '_samples.csv')
-df_complete.to_csv(parent_dir + '/data/simulated_data/' + network_name + '_' + str(n_trials) + '_trials_data.csv')
+df_samples_complete.to_csv(parent_dir + '/data_complete/simulated_data/' + network_name+ '_' + str(n_trials) + '_samples.csv')
+df_complete.to_csv(parent_dir + '/data_complete/simulated_data/' + network_name + '_' + str(n_trials) + '_trials_data.csv')
 
