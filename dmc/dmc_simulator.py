@@ -193,11 +193,16 @@ class DMC:
         X0 = np.random.beta(self.X0_beta_shape_fixed, self.X0_beta_shape_fixed, size=num_trials) * (2 * b) - b
 
         # Drift term mu(t), shape (T,)
-        t_div_tau = t / tau
-        exponent_term = np.exp(-t_div_tau)
-        power_term = (np.exp(1) * t_div_tau / (self.a_value - 1)) ** (self.a_value - 1)
-        deriv_term = ((self.a_value - 1) / t) - (1 / tau)
-        mu_t = A * exponent_term * power_term * deriv_term + mu_c  # shape (T,)
+
+        if self.a_value != 2:
+            t_div_tau = t / tau
+            exponent_term = np.exp(-t_div_tau)
+            power_term = (np.exp(1) * t_div_tau / (self.a_value - 1)) ** (self.a_value - 1)
+            deriv_term = ((self.a_value - 1) / t) - (1 / tau)
+            mu_t = A * exponent_term * power_term * deriv_term + mu_c  # shape (T,)
+        
+        else:
+            mu_t = A/tau * np.exp(1 - t/tau) * (1 - t/tau) + mu_c
 
         # Full drift for all trials: broadcast mu_t to (n_trials, T)
         dX = mu_t[None, :] * dt + sqrt_dt_sigma * noise  # shape (n_trials, T)
@@ -278,7 +283,11 @@ class DMC:
         conditions = np.repeat(np.arange(self.num_conditions), obs_per_condition)
 
         # precompute vector of time steps and 2D-noise
-        t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
+        if self.a_value != 2:
+            t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
+        else:
+            t = np.linspace(start=0, stop=self.tmax, num=int(self.tmax / self.dt))
+
         noise = np.random.normal(size=(num_obs, self.tmax))
         non_decision_ts = np.random.normal(size=num_obs, loc=mu_r, scale=sd_r)
         

@@ -22,7 +22,7 @@ parent_dir = '/home/administrator/Documents/bf_dmc'
 #'dmc_optimized_updated_priors_sdr_fixed_200_797801',
 #'dmc_optimized_updated_priors_sdr_estimated_200_797802'
 
-network_name = 'dmc_optimized_winsim_priors_sdr_estimated_200_818802'
+network_name = 'initial_priors_sdr_estimated'
 
 #network_name = 'dmc_optimized_winsim_priors_sdr_fixed_200_818801'
 
@@ -49,7 +49,7 @@ with open(model_specs_path, 'rb') as file:
 param_names = model_specs['simulation_settings']['param_names']
 
 simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
-approximator = keras.saving.load_model(parent_dir + "/data/training_checkpoints/" + network_name + '.keras')
+approximator = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name + '.keras')
 
 simulator.fixed_num_obs = n_trials
 
