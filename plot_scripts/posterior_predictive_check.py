@@ -15,9 +15,7 @@ import keras
 import bayesflow as bf
 import time
 
-parent_dir = os.getcwd()
-
-parent_dir = '/home/administrator/Documents'
+parent_dir = os.path.dirname(os.getcwd())
 
 dmc_module_dir = parent_dir + '/bf_dmc/dmc'
 

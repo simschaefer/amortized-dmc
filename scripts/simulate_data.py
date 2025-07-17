@@ -16,16 +16,13 @@ import os
 
 parent_dir = os.path.dirname(os.getcwd())
 
-#'dmc_optimized_updated_priors_sdr_fixed_200_797801',
-#'dmc_optimized_updated_priors_sdr_estimated_200_797802'
-
 #network_name = 'initial_priors_sdr_estimated'
 
-network_name = 'initial_priors_sdr_fixed'
+#network_name = 'initial_priors_sdr_fixed'
 
 #network_name = "updated_priors_sdr_estimated"
 
-#network_name = "updated_priors_sdr_fixed"
+network_name = "updated_priors_sdr_fixed"
 
 import bayesflow as bf
 from dmc import dmc_helpers

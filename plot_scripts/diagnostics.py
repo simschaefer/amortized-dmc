@@ -23,7 +23,7 @@ fixed_n_obs = int(arguments[2])
 
 # set working directory (local/mogon)
 if host == 'local':
-    parent_dir = '/home/administrator/Documents'
+    parent_dir = os.path.dirname(os.getcwd())
 else:
     parent_dir = os.getcwd()
 

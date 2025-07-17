@@ -28,7 +28,7 @@ host = str(arguments[1])
 
 
 if host == 'local':
-    parent_dir = '/home/administrator/Documents'
+    parent_dir = os.path.dirname(os.getcwd())
 else:
     parent_dir = os.getcwd()
 
