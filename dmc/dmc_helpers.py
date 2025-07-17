@@ -146,7 +146,7 @@ def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
     return inference_data
 
 
-def fit_empirical_data(data, approximator, id_label="participant"):
+def fit_empirical_data(data, approximator, id_label="participant", var_names=['rt', 'accuracy', "congruency_num"]):
     """
     Samples posteriors for empirical data for each unique subject or group.
 
@@ -169,6 +169,11 @@ def fit_empirical_data(data, approximator, id_label="participant"):
     id_label : str, optional
         The column name used to identify unique units in the data (e.g., "participant").
         Defaults to "participant".
+
+    var_names : str, optional
+        Contains a list of variable names that are used as inference variables by the adapter. 
+        It should contain the variable name of the reaction times (default = 'rt'), the name of the accuracy variable
+        (default = 'accuracy') as well as the name of the congruency variable (default = 'congruency_num').
 
     Returns:
     --------
@@ -200,7 +205,7 @@ def fit_empirical_data(data, approximator, id_label="participant"):
         part_data = data[data[id_label]==id]
         
         # bring it into the right format (dictionary)
-        part_data = format_empirical_data(part_data)    
+        part_data = format_empirical_data(part_data, var_names=var_names)    
 
         # draw posterior samples with the given approximator
         start_time=time.time()

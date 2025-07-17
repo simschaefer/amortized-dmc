@@ -35,12 +35,12 @@ with open(model_specs_path, 'rb') as file:
 
 simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
 
-approximator = keras.saving.load_model(parent_dir +"/data/training_checkpoints/" + network_name + ".keras")
+approximator = keras.saving.load_model(parent_dir +"/training_checkpoints/" + network_name + ".keras")
 
 # load empirical data
 
-narrow_data = pd.read_csv(parent_dir + '/data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir +'/data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir +'/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
 
@@ -95,6 +95,6 @@ plt.figure()
 updated_priors_narrow = empirical_samples_narrow.agg(['mean', 'std'])
 
 # save mean and sds:
-updated_priors_narrow.to_csv(parent_dir + '/data/updated_priors/updated_priors_' + network_name + '.csv')
+#updated_priors_narrow.to_csv(parent_dir + '/data/updated_priors/updated_priors_' + network_name + '.csv')
 
 
