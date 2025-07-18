@@ -45,8 +45,9 @@ The content in this repository enables you to:
 For a comprehensive introduction to each of these topics, see the notebooks in the folder `notebooks/`:
 
 1. [DMC Introduction](notebooks/dmc_introduction.ipynb)
-2. [Apply Networks to Empirical Data](notebooks/apply_pretrained_networks.ipynb)
+2. [Hyperparameter Optimization](notebooks/hyperparameter_optimization.ipynb)
 3. [Train New Networks](notebooks/apply_pretrained_networks.ipynb)
+4. [Apply Networks to Empirical Data](notebooks/apply_pretrained_networks.ipynb)
 
 ## 📁 Repository Structure
 
