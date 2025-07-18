@@ -43,9 +43,7 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
                                        'sdr_fixed': None,
                                        "tmax": 1500,
                                        "contamination_probability": None,
-                                       "min_num_obs": 50,
-                                       "max_num_obs": 1000,
-                                       "fixed_num_obs": None,
+                                       "fixed_num_obs": 500,
                                        'param_names': ("A", "tau", "mu_c", "mu_r", "b", "sd_r")}}
 
 print(model_specs, flush=True)
@@ -84,12 +82,12 @@ with open(training_file_path, 'rb') as file:
     train_data = pickle.load(file)
 
 
-#val_data = simulator.sample(1000)
+val_data = simulator.sample(1000)
 
 val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
-#with open(val_file_path, 'wb') as file:
-#   pickle.dump(val_data, file)
+with open(val_file_path, 'wb') as file:
+   pickle.dump(val_data, file)
 
 with open(val_file_path, 'rb') as file:
     val_data = pickle.load(file)
@@ -101,10 +99,9 @@ def objective(trial, epochs=n_epochs):
     dropout = trial.suggest_float("dropout", 0.01, 0.3)
     initial_learning_rate = trial.suggest_float("lr", 1e-4, 1e-3) 
     num_seeds = trial.suggest_int("num_seeds", 1, 8)
-    depth = trial.suggest_int("depth", 5, 12)
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
     embed_dim = trial.suggest_categorical("embed_dim", [64, 128])
-    summary_dim = trial.suggest_categorical("summary_dim", [4, 32])
+    summary_dim = trial.suggest_int("summary_dim", 4, 32)
 
     # Create inference net 
     inference_net = bf.networks.FlowMatching(coupling_kwargs=dict(subnet_kwargs=dict(dropout=dropout)))
@@ -119,7 +116,7 @@ def objective(trial, epochs=n_epochs):
         inference_network=inference_net,
         summary_network=summary_net,
         checkpoint_filepath= parent_dir + '/bf_dmc/data/optuna_checkpoints',
-        checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{depth}_{batch_size}_{embed_dim}_{summary_dim}',
+        checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{batch_size}_{embed_dim}_{summary_dim}',
         inference_variables=["A", "tau", "mu_c", "mu_r", "b", 'sd_r'])
     
     history = workflow.fit_offline(train_data, epochs=epochs, batch_size=batch_size, validation_data=val_data)
