@@ -47,12 +47,12 @@ with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
 # Load Checkpoints
-approximator = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras')
+approximator = keras.saving.load_model(parent_dir + "/bf_dmc/training_checkpoints/" + network_name + '.keras')
 
 
 # load narrow and wide data
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_wide.csv')
 
 
 train_idx = np.array([1761, 5281,  845, 1824, 5575, 8755, 8026, 8704, 7813, 1597, 7756,

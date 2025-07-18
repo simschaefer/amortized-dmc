@@ -48,7 +48,7 @@ simulator = DMC(**model_specs['simulation_settings'])
 
 param_names = model_specs['simulation_settings']['param_names']
 
-approximator = keras.saving.load_model(parent_dir +"/bf_dmc/data/training_checkpoints/" + network_name + ".keras")
+approximator = keras.saving.load_model(parent_dir +"/bf_dmc/training_checkpoints/" + network_name + ".keras")
 
 
 included_parts = np.array([
@@ -60,10 +60,10 @@ included_parts = np.array([
 ])
 
 
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/clean_experiment_data_narrow_complete.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/clean_experiment_data_narrow_complete.csv')
 #narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
 
-wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide_reliability.csv')
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_wide_reliability.csv')
 #wide_data = wide_data[wide_data['participant'].isin(included_parts)]
 
 empirical_data = pd.concat([narrow_data, wide_data])

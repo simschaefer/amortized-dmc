@@ -36,7 +36,7 @@ from dmc import DMC
 from dmc import dmc_helpers
 
 # load model specifications
-network_dir = parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras'
+network_dir = parent_dir + "/bf_dmc/training_checkpoints/" + network_name + '.keras'
 
 model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:

@@ -67,13 +67,13 @@ with open(model_specs_path, 'rb') as file:
 
 simulator = DMC(**model_specs['simulation_settings'])
 # Load checkpoints
-approximator = keras.saving.load_model(parent_dir + "/bf_dmc/data/training_checkpoints/" + network_name + '.keras')
+approximator = keras.saving.load_model(parent_dir + "/bf_dmc/training_checkpoints/" + network_name + '.keras')
 
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
+narrow_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_narrow.csv')
 
 narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
 
-wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
+wide_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_wide.csv')
 
 wide_data = wide_data[wide_data['participant'].isin(included_parts)]
 

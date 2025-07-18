@@ -29,7 +29,7 @@ from dmc import dmc_helpers
 
 import pandas as pd
 
-n_trials = 200
+n_trials = 500
 
 simulators = []
 approximators = []
