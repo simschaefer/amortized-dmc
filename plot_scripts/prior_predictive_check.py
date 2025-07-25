@@ -16,12 +16,17 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-arguments = sys.argv[1:]
-network_name_fixed = str(arguments[0])
-host = str(arguments[1])
-fixed_n_obs = int(arguments[2])
-num_resims = int(arguments[6])
-network_name_estimated = str(arguments[3])
+#arguments = sys.argv[1:]
+#network_name_fixed = str(arguments[0])
+#host = str(arguments[1])
+#num_resims = int(arguments[6])
+#network_name_estimated = str(arguments[3])
+
+network_name_fixed = 'initial_priors_sdr_fixed'
+network_name_estimated = 'initial_priors_sdr_estimated'
+num_resims = 100
+host = 'local'
+
 
 if host == 'local':
     parent_dir = os.path.dirname(os.getcwd())
@@ -30,13 +35,9 @@ else:
 
 plot_name = 'prior_predictive_check'
 
-#network_name_fixed = 'dmc_optimized_updated_priors_sdr_fixed_200_797801'
-#network_name_estimated = 'dmc_optimized_updated_priors_sdr_estimated_200_797802'
-#plot_name = 'prior_predictive_check_updated'
 
 test = True
 train = False
-
 
 
 import bayesflow as bf
@@ -45,8 +46,8 @@ from dmc import DMC
 import pandas as pd
 
 
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/bf_dmc/data/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
 empirical_data["condition_label"] = empirical_data["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
@@ -71,29 +72,30 @@ num_obs_empirical = int(round(empirical_data.groupby('participant').count().mean
 
 # load model_specs
 
-model_specs_path_fixed = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_fixed + '.pickle'
+model_specs_path_fixed = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
 
 with open(model_specs_path_fixed, 'rb') as file:
     model_specs_fixed = pickle.load(file)
 
-model_specs_path_estimated = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_estimated + '.pickle'
+model_specs_path_estimated = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
 
 with open(model_specs_path_estimated, 'rb') as file:
     model_specs_estimated = pickle.load(file)
 
-
-#model_specs['simulation_settings']['param_names'] = ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r')
+# specify simulators:
 
 simulator_fixed = DMC(**model_specs_fixed['simulation_settings'])
 
 simulator_estimated  = DMC(**model_specs_estimated['simulation_settings'])
 
-## Load Approximator
+## Load Approximators
 
 models = [simulator_estimated, simulator_fixed]
 
-con_color = '#132a70'
-inc_color = "maroon"
+# Define plot colors
+
+con_color = '#10225e'
+inc_color = '#FF6361'
 
 hue_order = ["Congruent", "Incongruent"]
 palette = {"Congruent": con_color, "Incongruent": inc_color}
@@ -124,7 +126,7 @@ for ax in axes[0]:
 
 for ax in axes[1]:
     ax.set_ylim(0, 17)
-    ax.set_xlim(min_acc, 1.02)
+    ax.set_xlim(0.8, 1.02)
 
 for j, model in enumerate(models):
 
@@ -191,4 +193,4 @@ if test:
     suffix = suffix + '_test'
 
 
-fig.savefig(parent_dir + '/bf_dmc/plots/prior_predictive_check/' + plot_name + suffix + network_name_fixed + '_' + network_name_fixed +'.png', dpi=600)
+fig.savefig(parent_dir + '/plots/prior_predictive_check/' + plot_name + suffix + network_name_fixed + '_' + network_name_fixed +'.png', dpi=600)

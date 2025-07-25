@@ -16,23 +16,22 @@ import keras
 import bayesflow as bf
 
 
-arguments = sys.argv[1:]
-network_name = str(arguments[0])
-host = str(arguments[1])
-fixed_n_obs = int(arguments[2])
+#arguments = sys.argv[1:]
+#network_name = str(arguments[0])
+#host = str(arguments[1])
+#fixed_n_obs = int(arguments[2])
+
+network_name = 'updated_priors_sdr_estimated'
+
+host = 'local'
+
+fixed_n_obs = 300
+
 
 if host == 'local':
     parent_dir = os.path.dirname(os.getcwd())
 else:
     parent_dir = os.getcwd()
-
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
-
-
-print(f'parent_dir: {parent_dir}', flush=True)
-print(f'dmc_module_dir: {dmc_module_dir}')
-
-sys.path.append(dmc_module_dir)
 
 
 from dmc import dmc_helpers
@@ -42,23 +41,24 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
 # Load Checkpoints
-approximator = keras.saving.load_model(parent_dir + "/bf_dmc/training_checkpoints/" + network_name + '.keras')
+approximator = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name + '.keras')
 
 
 # load narrow and wide data
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')
 
 
 train_idx = np.array([1761, 5281,  845, 1824, 5575, 8755, 8026, 8704, 7813, 1597, 7756,
        7624, 1108,  837, 7828, 6055,  833, 1821,  985, 1582, 8311, 8785,
        3286, 4264, 6583, 3487, 6565, 6427, 1430, 6361, 5815, 6262, 5332,
        1614, 7939, 6214])
+
 
 
 narrow_data = narrow_data[~narrow_data['participant'].isin(train_idx)]
@@ -86,7 +86,7 @@ parts=samples_complete["participant"].unique()
 
 param_names = model_specs['simulation_settings']['param_names']
 
-network_plot_folder = parent_dir + "/bf_dmc/plots/experimental_effects/" + network_name
+network_plot_folder = parent_dir + "/plots/experimental_effects/" + network_name
 
 if not os.path.exists(network_plot_folder):
     os.makedirs(network_plot_folder)

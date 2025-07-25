@@ -23,8 +23,15 @@ arguments = sys.argv[1:]
 network_name = str(arguments[0])
 host = str(arguments[1])
 
-num_reptitions = int(arguments[4])
-num_data_sets = int(arguments[5])
+num_reptitions = 1000
+num_data_sets = 100
+
+network_name = 'updated_priors_sdr_estimated'
+
+host = 'local'
+
+fixed_n_obs = 300
+
 
 if host == 'local':
     parent_dir = os.path.dirname(os.getcwd())
@@ -33,13 +40,11 @@ else:
 
 fontsize = 18
 
-print(f'parent_dir: {parent_dir}', flush=True)
-
 
 from dmc import DMC
 import copy
 
-model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
@@ -47,9 +52,9 @@ with open(model_specs_path, 'rb') as file:
 simulator = DMC(**model_specs['simulation_settings'])
 ## Load Approximator
 
-approximator = keras.saving.load_model(parent_dir +"/bf_dmc/data/training_checkpoints/" + network_name + ".keras")
+approximator = keras.saving.load_model(parent_dir +"/training_checkpoints/" + network_name + ".keras")
 
-network_plot_folder = parent_dir + "/bf_dmc/plots/metrics_num_obs/" + network_name
+network_plot_folder = parent_dir + "/plots/metrics_num_obs/" + network_name
 
 if not os.path.exists(network_plot_folder):
     os.makedirs(network_plot_folder)
@@ -58,11 +63,7 @@ list_metrics = []
 
 
 for rep in range(0, num_reptitions):
-    
-    #print(f'num_obs: {n_obs}')
-    # simulator.num_obs = n_obs
-#
-    #data_subset = dmc_helpers.subset_data(copy.deepcopy(val_data), idx=random_idx[:n_obs])
+
 
     data_subset = simulator.sample(num_data_sets)
 
@@ -121,7 +122,6 @@ for p, ax in zip(model_specs['simulation_settings']['param_names'], axes):
 
     label = suff + p + "$"
 
-    #data_set_metrics = data_set_metrics[data_set_metrics['metric_name'] != 'Calibration Error']
     
     sns.lineplot(data_set_metrics[data_set_metrics["variable_names"] == p], x="num_obs_bin", y="values", hue="metric_name", ax=ax, hue_order=hue_order, palette=palette, errorbar='sd')
     sns.scatterplot(data_set_metrics[data_set_metrics["variable_names"] == p], 
@@ -145,7 +145,6 @@ for p, ax in zip(model_specs['simulation_settings']['param_names'], axes):
     ax.tick_params(axis='x', labelsize=fontsize - 4)  
     ax.tick_params(axis='y', labelsize=fontsize - 4)
 
-    # plt.ylim(0, 1)
 
 
 fig.supxlabel("Number of Observations", fontsize=fontsize) 

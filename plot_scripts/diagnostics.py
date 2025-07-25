@@ -16,10 +16,16 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # get arguments:
-arguments = sys.argv[1:]
-network_name = str(arguments[0])
-host = str(arguments[1])
-fixed_n_obs = int(arguments[2])
+#arguments = sys.argv[1:]
+#network_name = str(arguments[0])
+#host = str(arguments[1])
+#fixed_n_obs = int(arguments[2])
+
+network_name = 'updated_priors_sdr_estimated'
+
+host = 'local'
+
+fixed_n_obs = 300
 
 # set working directory (local/mogon)
 if host == 'local':

@@ -13,20 +13,8 @@ import pickle
 import keras
 
 import bayesflow as bf
-import time
 
-parent_dir = os.path.dirname(os.getcwd())
-
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
-
-print(f'parent_dir: {parent_dir}', flush=True)
-print(f'dmc_module_dir: {dmc_module_dir}')
-
-sys.path.append(dmc_module_dir)
-
-
-from dmc import DMC
-from dmc import dmc_helpers
+from dmc import DMC, dmc_helpers
 
 import pandas as pd
 
@@ -35,14 +23,19 @@ import seaborn as sns
 
 from matplotlib.lines import Line2D
 
-arguments = sys.argv[1:]
-network_name = str(arguments[0])
-host = str(arguments[1])
-fixed_n_obs = int(arguments[2])
-num_resims = int(arguments[6])
+#arguments = sys.argv[1:]
+#network_name = str(arguments[0])
+#host = str(arguments[1])
+#fixed_n_obs = int(arguments[2])
+#num_resims = int(arguments[6])
+
+network_name = 'updated_priors_sdr_estimated'
+host = 'local'
+fixed_n_obs = 300
+num_resims = 100
 
 if host == 'local':
-    parent_dir = '/home/administrator/Documents'
+    parent_dir = os.path.dirname(os.getcwd())
 else:
     parent_dir = os.getcwd()
 
@@ -58,29 +51,26 @@ included_parts = np.array([
     8446, 8521, 8704, 8755, 8785, 8788, 161753, 337788
 ])
 
-model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs = pickle.load(file)
 
-#simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
-## Load Approximator
-
 simulator = DMC(**model_specs['simulation_settings'])
 # Load checkpoints
-approximator = keras.saving.load_model(parent_dir + "/bf_dmc/training_checkpoints/" + network_name + '.keras')
+approximator = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name + '.keras')
 
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_narrow.csv')
+narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
 
 narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
 
-wide_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_wide.csv')
+wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')
 
 wide_data = wide_data[wide_data['participant'].isin(included_parts)]
 
 
 
 empirical_data = pd.concat([narrow_data, wide_data])
-
+ 
 samples_narrow = dmc_helpers.fit_empirical_data(narrow_data, approximator)
 
 samples_narrow["spacing"]="narrow"
@@ -101,14 +91,13 @@ resimulated_accuracies_congruent = []
 resimulated_accuracies_incongruent = []
 
 
-ppc_plot_folder = parent_dir + "/bf_dmc/plots/ppc/" + network_name
+ppc_plot_folder = parent_dir + "/plots/ppc/" + network_name
 
 if not os.path.exists(ppc_plot_folder):
     os.makedirs(ppc_plot_folder)
 
-
-con_color = '#132a70'
-inc_color = "maroon"
+con_color = '#10225e'
+inc_color = '#FF6361'
 
 # Define custom legend elements
 legend_elements = [
@@ -155,7 +144,7 @@ for part in parts:
         
         
         # resimulate data
-        data_resimulated, excluded_samples =  dmc_helpers.resim_data(part_data_samples, 
+        data_resimulated =  dmc_helpers.resim_data(part_data_samples, 
                                                   num_obs=part_data.shape[0], 
                                                   num_resims=num_resims,
                                                   simulator=simulator, 
@@ -235,7 +224,7 @@ for part in parts:
     fig.get_figure()
 
 
-    fig.savefig(parent_dir + '/bf_dmc/plots/ppc/' + network_name + '/'  + network_name + '_' + str(part) + '.png')
+    fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_' + str(part) + '.png')
     
     
 df_aggr_resim = pd.concat(aggr_resim_list)
@@ -278,7 +267,7 @@ data_quant_emp_wide.columns = ['participant', 'condition_label', 'spacing_num', 
 
 
 
-aggr_empirical.columns = ['participant', 'condition_label', 'spacing_num', 'mean_rt_empirical', 'mean_accuracy_empirical', 'congruency_num']
+aggr_empirical.columns = ['participant', 'condition_label', 'spacing_num', 'computation_time', 'mean_rt_empirical', 'mean_accuracy_empirical', 'congruency_num']
 
 
 aggr_empirical = pd.merge(aggr_empirical, data_quant_emp_wide, on=['participant', 'condition_label', 'spacing_num'], how='left' )
@@ -288,6 +277,10 @@ merged = pd.merge(aggr_empirical, df_aggr_resim_aggr, on=['participant', 'condit
 merged["spacing"] = merged["spacing_num"].map({0.0: "Wide", 1.0: "Narrow"})
 
 names = ['Mean RT', 'Mean Accuracy', '.25 Quantile RT', 'Median RT','.75 Quantile RT']
+
+merged.to_csv(parent_dir + '/data_complete/ppc_data/pp_'+network_name+'.csv')
+
+merged = pd.read_csv(parent_dir + '/data_complete/ppc_data/pp_'+network_name+'.csv')
 
 plt.figure()
 
@@ -329,7 +322,8 @@ fig.text(.99, 0.3, 'Narrow', va='center', ha='left', fontsize=14, rotation=270)
 fig.tight_layout()
 
 
-fig.savefig(parent_dir + '/bf_dmc/plots/ppc/' + network_name + '/'  + network_name + '_mean_rt_mean_acc.png')
+fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_mean_rt_mean_acc.png', bbox_inches='tight')
     
+
 
 

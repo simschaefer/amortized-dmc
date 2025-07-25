@@ -34,6 +34,10 @@ and activate the environment:
 conda activate amortized_dmc
 ```
 
+## Project Status
+
+This project is currently under construction.
+
 ## Introduction
 
 The content in this repository enables you to:

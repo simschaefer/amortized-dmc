@@ -20,12 +20,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-arguments = sys.argv[1:]
-network_name_fixed = str(arguments[0])
-host = str(arguments[1])
-fixed_n_obs = int(arguments[2])
-num_resims = int(arguments[6])
-network_name_estimated = str(arguments[3])
+#arguments = sys.argv[1:]
+#network_name_fixed = str(arguments[0])
+#host = str(arguments[1])
+#fixed_n_obs = int(arguments[2])
+#num_resims = int(arguments[6])
+#network_name_estimated = str(arguments[3])
+
+network_name_fixed = 'updated_priors_sdr_fixed'
+network_name_estimated = 'updated_priors_sdr_estimated'
+fixed_n_obs = 300
+num_resims = 100
+host = 'local'
 
 if host == 'local':
     parent_dir = os.path.dirname(os.getcwd())
@@ -40,12 +46,12 @@ print(f'parent_dir: {parent_dir}', flush=True)
 from dmc import DMC, dmc_helpers
 
 
-model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_fixed + '.pickle'
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_fixed = pickle.load(file)
 
 
-model_specs_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name_estimated + '.pickle'
+model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_estimated = pickle.load(file)
 
@@ -54,18 +60,18 @@ simulator_fixed = DMC(**model_specs_fixed['simulation_settings'])
 simulator_estimated = DMC(**model_specs_estimated['simulation_settings'])
 
 # Load checkpoints
-approximator_fixed = keras.saving.load_model(parent_dir + "/bf_dmc/training_checkpoints/" + network_name_fixed + '.keras')
-approximator_estimated = keras.saving.load_model(parent_dir + "/bf_dmc/training_checkpoints/" + network_name_estimated + '.keras')
+approximator_fixed = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name_fixed + '.keras')
+approximator_estimated = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name_estimated + '.keras')
 
 # create plots folder
-ppc_plot_folder = parent_dir + "/bf_dmc/plots/ppc/" + network_name_fixed
+ppc_plot_folder = parent_dir + "/plots/ppc/" + network_name_fixed
 
 if not os.path.exists(ppc_plot_folder):
     os.makedirs(ppc_plot_folder)
 
 # laod empirical data
-narrow_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/bf_dmc/empirical_data/experiment_data_wide.csv')
+narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
+wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')
 
 empirical_data = pd.concat([narrow_data, wide_data])
 
