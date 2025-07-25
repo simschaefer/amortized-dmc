@@ -8,6 +8,10 @@ We propose a **generalized Amortized Bayesian Workflow** to yield optimal perfor
 ![](figures/flowchart_colorblind.png)
 
 
+## 🔧 Project Status
+
+This project is currently under construction.
+
 ## 🚀 Getting Started
 
 ### Download the Code
@@ -34,9 +38,6 @@ and activate the environment:
 conda activate amortized_dmc
 ```
 
-## Project Status
-
-This project is currently under construction.
 
 
 ## 📁 Repository Structure
