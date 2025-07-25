@@ -107,16 +107,3 @@ This project is currently under construction.
 
   
   
-## Citation
-
-If you use this project, please cite it as:
-
-```bibtex
-@article{schaefer2025amortized,
-  title={Amortized Bayesian Workflow for Modeling Congruency Effects Using the Diffusion Model for Conflict Tasks},
-  author={Schaefer, Simon B., Goettmann, J., Radev Stefan T., and Schubert, Anna-Lena},
-  journal={Preprint},
-  year={2025},
-  doi={...}
-}
-```
