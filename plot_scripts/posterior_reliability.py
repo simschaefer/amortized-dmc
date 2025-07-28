@@ -21,15 +21,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# get arguments
-#arguments = sys.argv[1:]
-#network_name = str(arguments[0])
-#host = str(arguments[1])
 
+arguments = sys.argv[1:]
 
-network_name = 'updated_priors_estimated'
+if 'executed_from_bash' in arguments:
+    network_name = str(arguments[0])
+    host = str(arguments[1])
+    fixed_n_obs = int(arguments[2])
+    num_resims = int(arguments[6])
 
-host = 'local'
+else:
+    
+    network_name = 'updated_priors_sdr_estimated'
+    fixed_n_obs = 300
+    num_resims = 100
+    host = 'local'
 
 if host == 'local':
     parent_dir = os.path.dirname(os.getcwd())
@@ -258,8 +264,6 @@ fig.savefig(network_plot_folder + '/plot_reliability_' + network_name + '_scatte
 
 
 ## ACDC data sets
-
-
 
 data_sets = ['model_data_hedge_hedge1', 'model_data_hedge_hedge2', 'model_data_hedge_hedge3', 'model_data_hedge_hedge4', 'model_data_hedge_hedge5', 'model_data_hedge_whitehead1', 'model_data_hedge_whitehead2', 'model_data_hedge_whitehead3'] 
 

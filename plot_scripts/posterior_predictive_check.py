@@ -23,16 +23,20 @@ import seaborn as sns
 
 from matplotlib.lines import Line2D
 
-#arguments = sys.argv[1:]
-#network_name = str(arguments[0])
-#host = str(arguments[1])
-#fixed_n_obs = int(arguments[2])
-#num_resims = int(arguments[6])
+arguments = sys.argv[1:]
 
-network_name = 'updated_priors_sdr_estimated'
-host = 'local'
-fixed_n_obs = 300
-num_resims = 100
+if 'executed_from_bash' in arguments:
+    network_name = str(arguments[0])
+    host = str(arguments[1])
+    fixed_n_obs = int(arguments[2])
+    num_resims = int(arguments[6])
+
+else:
+    
+    network_name = 'updated_priors_sdr_estimated'
+    fixed_n_obs = 300
+    num_resims = 100
+    host = 'local'
 
 if host == 'local':
     parent_dir = os.path.dirname(os.getcwd())
@@ -40,8 +44,8 @@ else:
     parent_dir = os.getcwd()
 
 
+# RT distributions cumulative?
 cumulative = True
-
 
 included_parts = np.array([
     275, 808, 810, 833, 837, 845, 916, 985, 1108, 1430, 1507, 1538, 1582, 1583, 1597, 1601,
@@ -115,7 +119,6 @@ aggr_resim_list = []
 
 fig, axes = plt.subplots(2,2, figsize=(10,10))
 
-#parts = [  1108,   1430,   1507,   1538,   1582,   1583,   1597,   1601]
 
 for part in parts:
     fig, axes = plt.subplots(2,2, figsize=(10,10))
@@ -150,9 +153,6 @@ for part in parts:
                                                   simulator=simulator, 
                                                   part=part, 
                                                   param_names=model_specs['simulation_settings']['param_names'] )
-        
-
-        # resim_data(post_sample_data, num_obs, simulator, part,
         
         # exclude non-convergents
         data_resimulated = data_resimulated[data_resimulated["rt"] != -1]
@@ -195,9 +195,6 @@ for part in parts:
         
         axes[spacing,1].plot(aggr_data["condition_label"], aggr_data["accuracy"], "x", color="maroon", markersize=10)
         plt.ylim(0.7, 1)
-        #fig.suptitle(str(part))
-
-        #axes[spacing,0].legend(title=None, loc="best")
         
         if spacing == 1:
             axes[spacing,0].legend_.remove()

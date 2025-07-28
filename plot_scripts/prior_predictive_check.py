@@ -9,23 +9,29 @@ if "KERAS_BACKEND" not in os.environ:
 
 import numpy as np
 import pickle
-
 import keras
 import seaborn as sns
-
 import matplotlib.pyplot as plt
+import bayesflow as bf
+from dmc import DMC
+import pandas as pd
 
+arguments = sys.argv[1:]
 
-#arguments = sys.argv[1:]
-#network_name_fixed = str(arguments[0])
-#host = str(arguments[1])
-#num_resims = int(arguments[6])
-#network_name_estimated = str(arguments[3])
+if 'executed_from_bash' in arguments:
+    network_name_fixed = str(arguments[0])
+    network_name_estimated = str(arguments[3])
+    host = str(arguments[1])
+    fixed_n_obs = int(arguments[2])
+    num_resims = int(arguments[6])
 
-network_name_fixed = 'initial_priors_sdr_fixed'
-network_name_estimated = 'initial_priors_sdr_estimated'
-num_resims = 100
-host = 'local'
+else:
+    
+    network_name_fixed = 'initial_priors_sdr_fixed'
+    network_name_estimated = 'initial_priors_sdr_estimated'
+    fixed_n_obs = 300
+    num_resims = 100
+    host = 'local'
 
 
 if host == 'local':
@@ -35,17 +41,7 @@ else:
 
 plot_name = 'prior_predictive_check'
 
-
-test = True
-train = False
-
-
-import bayesflow as bf
-from dmc import DMC
-
-import pandas as pd
-
-
+# load empirical data
 narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
 wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')
 
@@ -174,23 +170,12 @@ for j, model in enumerate(models):
 axes[0,0].legend_.remove()
 axes[1,0].legend_.remove()
 
-
 plt.legend()
 
 axes[1,1].legend_.remove()
 
-#fig.suptitle('Prior Predictive Check')
 fig.tight_layout()
 if axes[0,1].legend_ is not None:
     axes[0,1].legend_.set_title("")
 
-suffix = ''
-
-if train:
-    suffix = '_train'
-
-if test:
-    suffix = suffix + '_test'
-
-
-fig.savefig(parent_dir + '/plots/prior_predictive_check/' + plot_name + suffix + network_name_fixed + '_' + network_name_fixed +'.png', dpi=600)
+fig.savefig(parent_dir + '/plots/prior_predictive_check/' + plot_name + 'test' + network_name_fixed + '_' + network_name_fixed +'.png', dpi=600)

@@ -20,40 +20,42 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-#arguments = sys.argv[1:]
-#network_name_fixed = str(arguments[0])
-#host = str(arguments[1])
-#fixed_n_obs = int(arguments[2])
-#num_resims = int(arguments[6])
-#network_name_estimated = str(arguments[3])
+arguments = sys.argv[1:]
 
-network_name_fixed = 'updated_priors_sdr_fixed'
-network_name_estimated = 'updated_priors_sdr_estimated'
-fixed_n_obs = 300
-num_resims = 100
-host = 'local'
+if 'executed_from_bash' in arguments:
+    network_name_fixed = str(arguments[0])
+    host = str(arguments[1])
+    fixed_n_obs = int(arguments[2])
+    num_resims = int(arguments[6])
+    network_name_estimated = str(arguments[3])
+
+else:
+    network_name_fixed = 'updated_priors_sdr_fixed'
+    network_name_estimated = 'updated_priors_sdr_estimated'
+    fixed_n_obs = 300
+    num_resims = 100
+    host = 'local'
 
 if host == 'local':
     parent_dir = os.path.dirname(os.getcwd())
 else:
     parent_dir = os.getcwd()
 
-
-
 print(f'parent_dir: {parent_dir}', flush=True)
 
 
 from dmc import DMC, dmc_helpers
 
-
+# load model specifications for fixed model
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_fixed = pickle.load(file)
 
-
+# load model specifications for estimated model
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
 with open(model_specs_path, 'rb') as file:
     model_specs_estimated = pickle.load(file)
+
 
 # Define simulatores based on model_specs
 simulator_fixed = DMC(**model_specs_fixed['simulation_settings'])
