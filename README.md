@@ -102,7 +102,8 @@ conda activate amortized_dmc
   * `dmc_optuna.py`: automated hyperparameter optimization
   * `prior_updating.py`: updating of priors in the **Prior Updating** Phase using the networks trained on initial priors
   * `simulate_data.py`: data simulation used in the **Benchmarking** Phase 
+  * `drift_dm_fitting_mogon.R`: Parameter estimation for simulated data (`simulate_data.py`) using dRiftDM
   
 
   
-  
+
