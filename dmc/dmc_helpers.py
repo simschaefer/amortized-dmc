@@ -440,11 +440,8 @@ def delta_functions(data, quantiles = np.arange(0,1, 0.1),
     # compute quantiles 
     quantile_data = data.groupby(grouping_labels)[rt_var].quantile(quantiles).reset_index()
     
-    if 'level_2' in quantile_data.columns:
-        quantile_data.rename(columns={"level_2": "quantiles"}, inplace=True)
-
-    if 'level_3' in quantile_data.columns:
-        quantile_data.rename(columns={"level_3": "quantiles"}, inplace=True)
+    # Rename any 'level_*' column to 'quantiles' (find first match)
+    quantile_data.rename(columns={col: 'quantiles' for col in quantile_data.columns if 'level_' in col}, inplace=True)
 
     quantile_data_wide = quantile_data.pivot(index="quantiles", columns=congruency_name, values=rt_var)
 
