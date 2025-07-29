@@ -37,6 +37,14 @@ and activate the environment:
 ```
 conda activate amortized_dmc
 ```
+## Tutorial Notebooks
+
+To guide you through the key steps of our analyses, we provide comprehensive Jupyter notebooks covering the following topics:
+
+* [DMC data simulation](notebooks/dmc_introduction.ipynb)
+* [Hyperparameter optimization](notebooks/hyperparameter_oprimization.ipynb)
+* [Application of pretrained networks on empirical data](notebooks/apply_pretrained_networks.ipynb)
+
 
 ## 📁 Repository Structure
 
@@ -59,8 +67,8 @@ conda activate amortized_dmc
 
   Comprehensive examples for
   
+  * Data simulation using the DMC simulator
   * Running automated hyperparameter optimization using `optuna`
-  * Training new networks
   * Apply pretrained networks to empirical data
 
 * **`optuna_results/`**
