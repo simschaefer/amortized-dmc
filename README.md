@@ -38,8 +38,6 @@ and activate the environment:
 conda activate amortized_dmc
 ```
 
-
-
 ## 📁 Repository Structure
 
 * **`dmc/`**
