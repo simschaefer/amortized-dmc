@@ -386,7 +386,7 @@ def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, para
     return resim_complete
 
 
-def delta_functions(data, quantiles = np.arange(0.1 ,1, 0.1), 
+def delta_functions(data, quantiles = np.arange(0,1, 0.1), 
                   grouping_labels=["participant", "condition_label"],
                   rt_var="rt",
                   congruency_name="condition_label"):
