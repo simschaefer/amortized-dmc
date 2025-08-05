@@ -143,10 +143,7 @@ for part, ax in zip(parts, axes):
 
     ax.plot(quantile_data_wide_resim_fixed["mean_qu"] ,quantile_data_wide_resim_fixed["delta"] ,"-", color='#132a70', label = '$sd_r$ fixed')
 
-
-
-
-        # filter sample data for given participant and narrow spacing
+    # filter sample data for given participant and narrow spacing
     part_data_samples_estimated = samples_complete_estimated[samples_complete_estimated["participant"]==part]
 
     part_data_samples_estimated = part_data_samples_estimated[part_data_samples_estimated["spacing"] == "narrow"]
