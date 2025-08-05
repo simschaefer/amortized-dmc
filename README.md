@@ -91,18 +91,18 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
   
   * **In Silico Evaluation** Phase:
   
-    * `diagnostics.py`: computation of Recovery, Simulation-Based Calibration and Posterior Contraction for a fixed number of trials.
-    * `metrics_num_obs.py`: computation of all in silico metrics for a varying number of trials between 50 and 1000.
-  
+    * `diagnostics.py`: Computation of Recovery, Simulation-Based Calibration and Posterior Contraction for a fixed number of trials.
+    * `metrics_num_obs.py`: Computation of all in silico metrics for a varying number of trials between 50 and 1000.
+    * `plots_metrics_num_obs.ipynb`: Plotting data computed by `metrics_num_obs.py`
+    
   * **Application to Empirical Data** Phase:
-    * `experimental_effects.py`: computation of standardized mean differences between experimental conditions (narrow vs. wide stimuli spacing)
+    * `experimental_effects.py`: Computation of standardized mean differences between experimental conditions (narrow vs. wide stimuli spacing)
 
     * `posterior_predictive_check.py`: Posterior Predictive Checks of individual RT and Accuracy Data, as well as correlation between mean RT, RT quantiles and mean accuracy.
     * `posterior_predictive_check_delta_functions.py`: Posterior Predictive Check of individual delta functions.
     * `posterior_reliability.py`: Split-Half correlation between individual parameter estimates for seven data sets.
+    * `reliability_comparison_plots.ipynb`: Plotting data from `posterior_reliability.py`.
 
-  
-  
 * **`scripts/`**
 
   Additional scripts:
