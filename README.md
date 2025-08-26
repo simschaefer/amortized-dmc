@@ -26,10 +26,10 @@ Alternatively, download the repository by clicking at `Code` on the right hand s
 
 ### Install Dependencies
 
-All packages that were used in this project are listed in `requirements.txt`. Create a fresh conda environment `amortized_dmc` with all dependencies:
+All packages that were used in this project are listed in `requirements.txt`. Create a fresh conda environment `amortized_dmc`:
 
 ```
-conda create --name amortized_dmc --file requirements.txt
+conda create --name amortized_dmc python=3.11.11
 ```
 
 and activate the environment:
@@ -37,6 +37,19 @@ and activate the environment:
 ```
 conda activate amortized_dmc
 ```
+
+Install pip:
+
+```
+conda install pip
+```
+
+And all dependencies:
+
+```
+pip install -r requirements.txt
+```
+
 ## Tutorial Notebooks
 
 To guide you through the key steps of our analyses, we provide comprehensive Jupyter notebooks covering the following topics:
