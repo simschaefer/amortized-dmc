@@ -244,7 +244,7 @@ class DMC:
         mu_r: float, 
         b: float,
         num_obs: int,
-        sd_r: float = 0
+        sd_r: float
     ):
         """
         Simulate multiple DMC trials in parallel.
@@ -277,6 +277,8 @@ class DMC:
         
         # random number of trials
         # num_obs = self.num_obs or np.random.randint(min_num_obs, max_num_obs+1)
+        # sd_r fixed or sampeld from prior-function
+        sd_r = self.sdr_fixed or sd_r
         
         # congruency conditions (equal split)
         obs_per_condition = int(np.ceil(num_obs / self.num_conditions))
