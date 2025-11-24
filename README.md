@@ -19,7 +19,7 @@ This project is currently under construction.
 First, open a terminal on your local machine and navigate to the directory where you want to store the project. Then, run the following command to clone the repository to your local machine:
 
 ```
-git clone https://github.com/simschaefer/amortized_dmc.git
+git clone https://github.com/simschaefer/amortized-dmc.git
 ```
 
 Alternatively, download the repository by clicking at `Code` on the right hand side, click `Download ZIP` and extract the .zip file in the directory where you want to store the project.
@@ -55,7 +55,7 @@ pip install -r requirements.txt
 To guide you through the key steps of our analyses, we provide comprehensive Jupyter notebooks covering the following topics:
 
 * [DMC data simulation](notebooks/dmc_introduction.ipynb)
-* [Hyperparameter optimization](notebooks/hyperparameter_oprimization.ipynb)
+* [Hyperparameter optimization](notebooks/hyperparameter_optimization.ipynb)
 * [Application of pretrained networks on empirical data](notebooks/apply_pretrained_networks.ipynb)
 
 
