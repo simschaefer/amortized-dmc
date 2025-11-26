@@ -244,7 +244,7 @@ class DMC:
         mu_r: float, 
         b: float,
         num_obs: int,
-        sd_r: float
+        sd_r: float = 0,
     ):
         """
         Simulate multiple DMC trials in parallel.

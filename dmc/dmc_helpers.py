@@ -674,3 +674,91 @@ def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=T
     fig.tight_layout()
 
     return data_d, fig
+
+
+def format_sim_data(sim_data, congruency_coding=1, only_convergents=True):
+
+    batch_size = sim_data['rt'].shape[0]
+
+    behav_keys = ['rt', 'accuracy', 'conditions']
+
+    behav_data = {k: sim_data[k] for k in behav_keys}
+
+    df_lst = []
+
+    batch_name = 'batch_nr'
+    rt_var = 'rt'
+
+    for i in range(batch_size):
+        df_single = pd.DataFrame(np.stack((behav_data['rt'][i,:,:],behav_data['accuracy'][i,:,:], behav_data['conditions'][i,:,:]), axis=1)[:,:,0])
+        df_single[batch_name] = i
+        df_single.columns = [rt_var, 'accuracy', 'conditions', batch_name]
+        df_single['congruency_name'] = ['congruent' if x == congruency_coding else 'incongruent' for x in df_single['conditions']]
+        df_single['accuracy_name'] = ['correct' if x == 1. else 'incorrect' for x in df_single['accuracy']]
+        df_lst.append(df_single)
+
+
+    df_complete = pd.concat(df_lst)
+
+    if only_convergents:
+        df_complete = df_complete[df_complete['rt'] != -1]
+
+    delta_data = (
+        df_complete
+        .groupby(['batch_nr', 'congruency_name'])['rt']
+        .quantile(np.arange(0.1, 0.9, 0.1))
+        .reset_index()
+        .rename(columns={'level_2': 'quantile'})
+        .pivot(index=['batch_nr', "quantile"], columns=['congruency_name'], values='rt')
+        .reset_index()
+        .assign(delta=lambda df: df['incongruent'] - df['congruent'])
+        .assign(mean_qu=lambda df: (df['incongruent'] + df['congruent'])/2)
+    )
+
+    df_complete['rt_bin'] = pd.qcut(df_complete['rt'], q=10, labels=False)
+
+    caf_data = (
+        df_complete
+        .groupby(['batch_nr', 'congruency_name', 'rt_bin'])['accuracy']
+        .mean()
+        .reset_index()
+        .rename(columns={'level_2': 'quantile'})
+        .reset_index()
+    )
+
+    df_long = pd.melt(
+        delta_data,
+        id_vars=['batch_nr', 'quantile'],
+        value_vars=['congruent', 'incongruent'],
+        var_name='condition',
+        value_name='rt'
+    )
+
+    return delta_data, caf_data, df_long
+
+def plot_sim_data(delta_data, caf_data, df_long, alpha=0.5, delta_bins=10, id_name='batch_nr', congruency_name='congruency_name'):
+    mean_data = df_long.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+
+    fig, axes = plt.subplots(1,3, figsize=(12,3))
+
+    sns.lineplot(df_long, x='rt', y='quantile', hue='condition', style=id_name, legend=False, ax=axes[1], alpha=alpha)
+    sns.lineplot(mean_data, x='rt', y='quantile', hue='condition', alpha=1, ax=axes[1])
+    axes[0].set_title('CAF')
+    axes[0].set_ylabel('CAF')
+
+    sns.lineplot(caf_data, x='rt_bin', y='accuracy', hue=congruency_name, ax=axes[0])
+    axes[1].set_title('CDF')
+
+    delta_data['mean_qu_bins'] = pd.cut(delta_data["mean_qu"], bins=delta_bins)
+    delta_bins = delta_data.groupby('mean_qu_bins')['delta'].mean().reset_index()
+    delta_bins['bin_mid'] = delta_bins['mean_qu_bins'].apply(lambda x: x.mid)
+    delta_bins
+
+    sns.lineplot(delta_data, x='mean_qu', y='delta', hue=id_name, legend=False, ax=axes[2], alpha=alpha)
+    sns.lineplot(delta_bins, x='bin_mid', y='delta', legend=False, ax=axes[2])
+    axes[2].set_title('$\Delta$')
+
+    fig.tight_layout()
+
+    return fig
+
