@@ -13,8 +13,9 @@ import keras
 import seaborn as sns
 import matplotlib.pyplot as plt
 import bayesflow as bf
-from dmc import DMC
+from dmc import DMC, dmc_helpers
 import pandas as pd
+from matplotlib.lines import Line2D
 
 arguments = sys.argv[1:]
 
@@ -26,9 +27,14 @@ if 'executed_from_bash' in arguments:
     num_resims = int(arguments[6])
 
 else:
-    
-    network_name_fixed = 'initial_priors_sdr_fixed'
-    network_name_estimated = 'initial_priors_sdr_estimated'
+
+    network_names = [
+        'updated_priors_sdr_fixed',
+        'updated_priors_sdr_estimated',
+        'initial_priors_sdr_fixed',
+        'initial_priors_sdr_estimated',
+    ]
+
     fixed_n_obs = 300
     num_resims = 100
     host = 'local'
@@ -42,140 +48,125 @@ else:
 plot_name = 'prior_predictive_check'
 
 # load empirical data
-narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
-wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')
-
-empirical_data = pd.concat([narrow_data, wide_data])
-empirical_data["condition_label"] = empirical_data["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
+narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')[['participant', 'rt', 'accuracy', 'congruency_num']]
+wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')[['participant', 'rt', 'accuracy', 'congruency_num']]
 
 train_idx = np.array([1761, 5281,  845, 1824, 5575, 8755, 8026, 8704, 7813, 1597, 7756,
        7624, 1108,  837, 7828, 6055,  833, 1821,  985, 1582, 8311, 8785,
-       3286, 4264, 6583, 3487, 6565, 6427, 1430, 6361, 5815, 6262, 5332,
+       3286, 4264, 6583, 6585, 3487, 6427, 1430, 6361, 5815, 6262, 5332,
        1614, 7939, 6214, 8521])
 
 
-empirical_data = empirical_data[~empirical_data['participant'].isin(train_idx)]
+narrow_data = narrow_data[~narrow_data['participant'].isin(train_idx)]
+wide_data = wide_data[~wide_data['participant'].isin(train_idx)]
 
+narrow_data['congruency_num'] = ['congruent' if x == 0 else 'incongruent' for x in narrow_data['congruency_num']]
+wide_data['congruency_num'] = ['congruent' if x == 0 else 'incongruent' for x in wide_data['congruency_num']]
+       
 
+delta_data_emp, caf_data_emp, df_long_emp = dmc_helpers.compute_stats(narrow_data, id_name='participant', congruency_name='congruency_num', n_rt_bins=5)
 
-min_acc = empirical_data.groupby(['participant']).mean('accuracy')['accuracy'].min()
-
-plt.hist(empirical_data.groupby(['participant']).mean('accuracy')['accuracy'])
-
-empirical_accuracies = empirical_data.groupby('participant').mean('accuracy')
-
-num_obs_empirical = int(round(empirical_data.groupby('participant').count().mean())['rt'])
 
 # load model_specs
 
-model_specs_path_fixed = parent_dir + '/model_specs/model_specs_' + network_name_fixed + '.pickle'
+simulators = {}
 
-with open(model_specs_path_fixed, 'rb') as file:
-    model_specs_fixed = pickle.load(file)
+for i in range(0, len(network_names)):
 
-model_specs_path_estimated = parent_dir + '/model_specs/model_specs_' + network_name_estimated + '.pickle'
+    model_specs_path_updated_fixed = parent_dir + '/model_specs/model_specs_' + network_names[i] + '.pickle'
 
-with open(model_specs_path_estimated, 'rb') as file:
-    model_specs_estimated = pickle.load(file)
+    with open(model_specs_path_updated_fixed, 'rb') as file:
+        model_specs = pickle.load(file)
 
-# specify simulators:
+    model_specs['simulation_settings']['fixed_num_obs'] = 350
 
-simulator_fixed = DMC(**model_specs_fixed['simulation_settings'])
-
-simulator_estimated  = DMC(**model_specs_estimated['simulation_settings'])
-
-## Load Approximators
-
-models = [simulator_estimated, simulator_fixed]
-
-# Define plot colors
-
-con_color = '#10225e'
-inc_color = '#FF6361'
-
-hue_order = ["Congruent", "Incongruent"]
-palette = {"Congruent": con_color, "Incongruent": inc_color}
+    simulators[network_names[i]] = DMC(**model_specs['simulation_settings'])
 
 
-n_sims = 200
+id_name='participant'
+congruency_name='congruency_num'
+quantiles = np.arange(0.1, 1, 0.1)
+legend=True
+num_samples = 1000
 
-fig, axes = plt.subplots(2,2)
+for priors in ['initial', 'updated']:
 
-model_titles = ['$sd_r \\ estimated$', '$sd_r \\ fixed$']
+    if priors == 'updated':
+        legend=False
+        ylim=(0,0.08)
+    else:
+        ylim=(0,0.18)
 
-alpha = 0.03
+    sim_data_estimated = simulators[priors + '_priors_sdr_estimated'].sample(num_samples)
 
-# rt sdr vs. empirical - rt sdr fixed vs. empirical
-# acc sdr vs. empirical - acc sdr fixed vs. empirical
+    sim_data_fixed = simulators[priors + '_priors_sdr_fixed'].sample(num_samples)
 
-# Share x-axis within each row
-for row_axes in axes:
-    # Share all x-axes in this row with the first one in the row
-    for ax in row_axes[1:]:
-        ax.sharex(row_axes[0])
-        ax.sharey(row_axes[0])
+    sim_data_estimated = dmc_helpers.format_sim_data(sim_data_estimated, congruency_coding=0)
+
+    sim_data_fixed = dmc_helpers.format_sim_data(sim_data_fixed, congruency_coding=0)
+
+    delta_data_fixed, caf_data_fixed, df_long_fixed = dmc_helpers.compute_stats(sim_data_fixed, id_name='batch_nr', congruency_name='congruency_name', n_rt_bins=5)
+
+    delta_data_estimated, caf_data_estimated, df_long_estimated = dmc_helpers.compute_stats(sim_data_estimated, id_name='batch_nr', congruency_name='congruency_name', n_rt_bins=5)
 
 
-for ax in axes[0]:
-    ax.set_ylim(0, 4)
-    ax.set_xlim(0.15, 1.2)
+    linewidth = 1.5
+    fontsize=14
+    fontsize_axes=14
+    fontsize_ticklabels=12
+    fontsize_legend=12
 
-for ax in axes[1]:
-    ax.set_ylim(0, 17)
-    ax.set_xlim(0.8, 1.02)
+    fig, axes = dmc_helpers.plot_fit(delta_data=delta_data_estimated,
+                        delta_data_emp=delta_data_emp,
+                        caf_data=caf_data_estimated,
+                        caf_data_emp=caf_data_emp,
+                        df_long=df_long_estimated,
+                        df_long_emp=df_long_emp,
+                        fontsize=fontsize,
+                        legend=legend,
+                        set_ylim_delta=True,
+                        ylim_delta=ylim,
+                        fontsize_axes=fontsize_axes,
+                        fontsize_ticklabels=fontsize_ticklabels,
+                        fontsize_legend=fontsize_legend,
+                        linewidth=linewidth)
 
-for j, model in enumerate(models):
-
-    lst_acc = list()
-
-    for i in range(0, n_sims):
-
-        sim_iteration = model.experiment(**model.prior(), num_obs=350)
-
-        sim_iteration = {k: sim_iteration[k] for k in ['rt', 'accuracy', 'conditions']}
-        sim_id_df = pd.DataFrame(sim_iteration)
-
-        sim_id_df['n_sim'] = i
-
-        sim_id_df["condition_label"] = sim_id_df["conditions"].map({0.0: "Congruent", 1.0: "Incongruent"})
-
-        accuracy = sim_id_df['accuracy'][sim_id_df['accuracy'] != -1.0]
-
-        lst_acc.append(sim_id_df)
-
-        sim_id_df = sim_id_df[sim_id_df['rt'] != -1.0]
-        sim_id_df = sim_id_df[sim_id_df['accuracy'] != -1.0]
-
-        sns.kdeplot(sim_id_df, x='rt', ax=axes[0,j], alpha=alpha, hue='condition_label', hue_order=hue_order, palette=palette)
-        axes[0,j].set_title(model_titles[j])
-
-    acc_df = pd.concat(lst_acc)
-    acc_df = acc_df.groupby(['n_sim', 'condition_label']).mean('accuracy')
+    fig, axes = dmc_helpers.plot_fit(delta_data=delta_data_fixed,
+                        delta_data_emp=delta_data_emp,
+                        caf_data=caf_data_fixed,
+                        caf_data_emp=caf_data_emp,
+                        df_long=df_long_fixed,
+                        df_long_emp=df_long_emp,
+                        legend=False,
+                        fontsize=fontsize,
+                        new_plot=False,
+                        fig=fig, 
+                        axes=axes,
+                        set_ylim_delta=True,
+                        ylim_delta=ylim,
+                        fontsize_axes=fontsize_axes,
+                        fontsize_ticklabels=fontsize_ticklabels,
+                        fontsize_legend=fontsize_legend,
+                        #palette_model={"congruent": '#FFBD00', "incongruent": '#9E0059'},
+                        delta_linestyle_model=':',
+                        caf_linestyle_model=':',
+                        cdf_linestyle_model=':',
+                        linewidth=linewidth)
     
-    sns.kdeplot(acc_df, x='accuracy', ax =axes[1, j], hue='condition_label', hue_order=hue_order, palette=palette, alpha=0.5, legend=False)
-    emp_acc = empirical_data.groupby(['participant', 'congruency_num']).mean('accuracy')
-    emp_acc.reset_index(inplace=True)
+    if priors == 'updated':
+        custom_legend = [
+            Line2D([0], [0], color="black", lw=1.5, linestyle="-", label="$\\text{sd}_r$ estimated"),
+            Line2D([0], [0], color="black", lw=1.5, linestyle=":", label="$\\text{sd}_r$ fixed"),
+            Line2D([0], [0], color="black", lw=1.5, linestyle="--", marker="o", label="Empirical"),
+        ]
 
-    emp_acc['condition_label'] = emp_acc["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
+        axes[0].legend(
+            handles=custom_legend,
+            loc="lower right",
+            fontsize=fontsize_legend,
+            frameon=False
+        )
+        
 
-    sns.kdeplot(emp_acc, x='accuracy', hue='condition_label', ax=axes[1, j], hue_order=hue_order, palette=palette)
+    fig.savefig(parent_dir + '/plots/prior_predictive_check/prior_predictive_'+priors + '.png', dpi=600)
 
-    sns.kdeplot(empirical_data.reset_index(), x='rt', ax=axes[0, j], hue='condition_label', hue_order=hue_order, palette=palette, alpha=1)
-
-    axes[1, j].set_xlabel('Accuracy')
-    axes[0, j].set_xlabel('RT')
-
-
-
-axes[0,0].legend_.remove()
-axes[1,0].legend_.remove()
-
-plt.legend()
-
-axes[1,1].legend_.remove()
-
-fig.tight_layout()
-if axes[0,1].legend_ is not None:
-    axes[0,1].legend_.set_title("")
-
-fig.savefig(parent_dir + '/plots/prior_predictive_check/' + plot_name + 'test' + network_name_fixed + '_' + network_name_fixed +'.png', dpi=600)

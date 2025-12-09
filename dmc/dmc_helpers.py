@@ -593,12 +593,11 @@ def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=T
 
     parts = samples1[subj_id].unique()
 
+    n_parts = parts.shape[0]
 
-    samples1.sort_values(by=subj_id, inplace=True)
-    samples2.sort_values(by=subj_id, inplace=True)
+    samples1['sample_id'] = np.tile(np.random.permutation(num_samples), parts.shape[0]) 
+    samples2['sample_id'] = np.tile(np.random.permutation(num_samples), parts.shape[0])
 
-    samples1['sample_id'] = np.tile(np.arange(0,num_samples), parts.shape[0])
-    samples2['sample_id'] = np.tile(np.arange(0,num_samples), parts.shape[0])
 
     for j,p in enumerate(param_names):
         for i in range(0, num_samples):
@@ -619,9 +618,13 @@ def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=T
             if m1.shape[0] != parts.shape[0] or m2.shape[0] != parts.shape[0]:
                 warnings.warn(f'Mismatch in number of entries in sample id {i}')
 
+            m1 = m1.values
+            m2 = m2.values
 
             d = np.mean(m1) - np.mean(m2)
-            mean_d = d/np.std(m1 - m2)
+
+            diff = m1 - m2
+            mean_d = d/np.std(diff, ddof=1)
 
             cohens_ds[i,j] = mean_d
 
@@ -697,29 +700,33 @@ def format_sim_data(sim_data, congruency_coding=1, only_convergents=True):
         df_single['accuracy_name'] = ['correct' if x == 1. else 'incorrect' for x in df_single['accuracy']]
         df_lst.append(df_single)
 
-
     df_complete = pd.concat(df_lst)
 
     if only_convergents:
         df_complete = df_complete[df_complete['rt'] != -1]
 
+    return df_complete
+
+
+def compute_stats(df_complete, id_name='batch_nr', congruency_name='congruency_name', n_rt_bins=5, quantiles=np.arange(0.1, 1, 0.1)):
+
     delta_data = (
         df_complete
-        .groupby(['batch_nr', 'congruency_name'])['rt']
-        .quantile(np.arange(0.1, 0.9, 0.1))
+        .groupby([id_name, congruency_name])['rt']
+        .quantile(quantiles)
         .reset_index()
         .rename(columns={'level_2': 'quantile'})
-        .pivot(index=['batch_nr', "quantile"], columns=['congruency_name'], values='rt')
+        .pivot(index=[id_name, "quantile"], columns=[congruency_name], values='rt')
         .reset_index()
         .assign(delta=lambda df: df['incongruent'] - df['congruent'])
         .assign(mean_qu=lambda df: (df['incongruent'] + df['congruent'])/2)
     )
 
-    df_complete['rt_bin'] = pd.qcut(df_complete['rt'], q=10, labels=False)
+    df_complete['rt_bin'] = pd.qcut(df_complete['rt'], q=n_rt_bins, labels=False)
 
     caf_data = (
         df_complete
-        .groupby(['batch_nr', 'congruency_name', 'rt_bin'])['accuracy']
+        .groupby([id_name, congruency_name, 'rt_bin'])['accuracy']
         .mean()
         .reset_index()
         .rename(columns={'level_2': 'quantile'})
@@ -728,7 +735,7 @@ def format_sim_data(sim_data, congruency_coding=1, only_convergents=True):
 
     df_long = pd.melt(
         delta_data,
-        id_vars=['batch_nr', 'quantile'],
+        id_vars=[id_name, 'quantile'],
         value_vars=['congruent', 'incongruent'],
         var_name='condition',
         value_name='rt'
@@ -736,29 +743,291 @@ def format_sim_data(sim_data, congruency_coding=1, only_convergents=True):
 
     return delta_data, caf_data, df_long
 
-def plot_sim_data(delta_data, caf_data, df_long, alpha=0.5, delta_bins=10, id_name='batch_nr', congruency_name='congruency_name'):
+
+def plot_stats(delta_data, caf_data, df_long, alpha=0.5, id_name='batch_nr', congruency_name='congruency_name', n_delta_bins = 10, fontsize=24, fontsize_axes=20):
+    
     mean_data = df_long.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
 
     fig, axes = plt.subplots(1,3, figsize=(12,3))
 
     sns.lineplot(df_long, x='rt', y='quantile', hue='condition', style=id_name, legend=False, ax=axes[1], alpha=alpha)
     sns.lineplot(mean_data, x='rt', y='quantile', hue='condition', alpha=1, ax=axes[1])
-    axes[0].set_title('CAF')
-    axes[0].set_ylabel('CAF')
+    axes[0].set_title('CAF', fontsize=fontsize)
+    axes[0].set_ylabel('CAF', fontsize=fontsize_axes)
 
     sns.lineplot(caf_data, x='rt_bin', y='accuracy', hue=congruency_name, ax=axes[0])
-    axes[1].set_title('CDF')
+    axes[1].set_title('CDF', fontsize=fontsize)
 
-    delta_data['mean_qu_bins'] = pd.cut(delta_data["mean_qu"], bins=delta_bins)
+    delta_data['mean_qu_bins'] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
     delta_bins = delta_data.groupby('mean_qu_bins')['delta'].mean().reset_index()
     delta_bins['bin_mid'] = delta_bins['mean_qu_bins'].apply(lambda x: x.mid)
-    delta_bins
 
-    sns.lineplot(delta_data, x='mean_qu', y='delta', hue=id_name, legend=False, ax=axes[2], alpha=alpha)
-    sns.lineplot(delta_bins, x='bin_mid', y='delta', legend=False, ax=axes[2])
-    axes[2].set_title('$\Delta$')
+
+    delta_bins = (
+            delta_data
+            .groupby('quantile')[['mean_qu', 'delta']]
+            .mean()
+            .reset_index()
+            .sort_values('mean_qu')
+        )
+
+    sns.lineplot(delta_data,linewidth=0.5,linestyle='--',marker="o",  x='mean_qu', y='delta', hue=id_name, legend=False, ax=axes[2], alpha=0.05)
+    sns.lineplot(delta_bins,linewidth=0.5,linestyle='--',marker="o",  x='mean_qu', y='delta', legend=False, ax=axes[2], color='black')
+    axes[2].set_ylabel('$\Delta$', fontsize=fontsize_axes)
+    axes[2].set_xlabel('RT[s]', fontsize=fontsize_axes)
+
+    axes[2].set_title('$\Delta$-Function', fontsize=fontsize)
+    
+    axes[2].set(ylim=(0, 0.07))
+    axes[2].set(xlim=(0.35, 0.63))
+    axes[0].legend(title='', loc='lower right')
+    axes[1].get_legend().remove()
 
     fig.tight_layout()
 
-    return fig
+    return fig, axes
 
+
+def plot_fit(
+    delta_data: pd.DataFrame,
+    delta_data_emp: pd.DataFrame,
+    caf_data: pd.DataFrame,
+    caf_data_emp: pd.DataFrame,
+    df_long: pd.DataFrame,
+    df_long_emp: pd.DataFrame,
+    congruency_name: str = "congruency_name",
+    congruency_name_emp: str = "congruency_num",
+    n_delta_bins: int = 10,
+    set_ylim_delta: bool = False,
+    ylim_delta: Tuple[float, float] = (0.0, 0.07),
+    fontsize: int = 14,
+    fontsize_axes: int = 14,
+    fontsize_ticklabels: int = 10,
+    fontsize_legend: int = 12,
+    xlim_cdf: Tuple[float, float] = (0.35, 0.63),
+    legend: bool = True,
+    new_plot: bool = True,
+    caf_errorbars: Optional[object] = None,
+    hue_order: Sequence[str] = ("congruent", "incongruent"),
+    palette_emp: Mapping[str, str] = {"congruent": "#132a70", "incongruent": "#FF6361"},
+    palette_model: Mapping[str, str] = {"congruent": "#132a70", "incongruent": "#FF6361"},
+    delta_linestyle_model: str = "-",
+    caf_linestyle_model: str = "-",
+    cdf_linestyle_model: str = "-",
+    linewidth: float = 0.5,
+    fig: Optional[Figure] = None,
+    axes: Optional[Sequence[Axes]] = None):
+    """
+    Plot model and empirical CAFs, CDFs, and Δ-function in a 1×3 subplot layout.
+
+    This function creates three panels:
+    1. CAF (Conditional Accuracy Function)
+    2. CDF (Cumulative Distribution Function of RTs)
+    3. Δ-function (delta between conditions as a function of RT)
+
+    Parameters
+    ----------
+    delta_data : pandas.DataFrame
+        Model delta data with at least the columns:
+        ['quantile', 'mean_qu', 'delta'].
+    delta_data_emp : pandas.DataFrame
+        Empirical delta data with at least the columns:
+        ['quantile', 'mean_qu', 'delta'].
+    caf_data : pandas.DataFrame
+        Model CAF data with columns including:
+        ['rt_bin', 'accuracy', <congruency_name>].
+    caf_data_emp : pandas.DataFrame
+        Empirical CAF data with columns including:
+        ['rt_bin', 'accuracy', <congruency_name_emp>].
+    df_long : pandas.DataFrame
+        Long-format model RT data with columns:
+        ['quantile', 'condition', 'rt'].
+    df_long_emp : pandas.DataFrame
+        Long-format empirical RT data with columns:
+        ['quantile', 'condition', 'rt'].
+    congruency_name : str, optional
+        Column name in `caf_data` indicating congruency condition
+        for the model (default: 'congruency_name').
+    congruency_name_emp : str, optional
+        Column name in `caf_data_emp` indicating congruency condition
+        for the empirical data (default: 'congruency_num').
+    n_delta_bins : int, optional
+        Number of bins used when discretizing `mean_qu` with `pd.cut`
+        (default: 10). Currently used when computing intermediate
+        delta summaries.
+    set_ylim_delta : bool, optional
+        If True, apply `ylim_delta` to the Δ-function axis (default: False).
+    ylim_delta : tuple of float, optional
+        Y-axis limits for the Δ-function subplot (default: (0.0, 0.07)).
+    fontsize : int, optional
+        Font size for subplot titles (default: 14).
+    fontsize_axes : int, optional
+        Font size for axis labels (default: 14).
+    fontsize_ticklabels : int, optional
+        Font size for tick labels (default: 10).
+    fontsize_legend : int, optional
+        Font size for the legend (default: 12).
+    xlim_cdf : tuple of float, optional
+        X-axis limits for the Δ-function subplot, interpreted as RT in seconds
+        (default: (0.35, 0.63)).
+    legend : bool, optional
+        If True, draw a legend for the CAF panel (default: True).
+    new_plot : bool, optional
+        If True, create a new figure and axes. If False, draw into the
+        provided `fig` and `axes` (default: True).
+    caf_errorbars : object, optional
+        Errorbar specification passed through to `sns.lineplot` for the model CAF.
+        This can be any format accepted by seaborn's `errorbar` parameter
+        (e.g. 'ci', 'se', None, a tuple, or a callable; default: None).
+    hue_order : sequence of str, optional
+        Order of condition levels for hue mapping (default: ('congruent', 'incongruent')).
+    palette_emp : Mapping[str, str], optional
+        Color palette for empirical lines, mapping condition names to hex colors
+        (default: {"congruent": "#132a70", "incongruent": "#FF6361"}).
+    palette_model : Mapping[str, str], optional
+        Color palette for model lines, mapping condition names to hex colors
+        (default: {"congruent": "#132a70", "incongruent": "#FF6361"}).
+    delta_linestyle_model : str, optional
+        Matplotlib linestyle for the model Δ-function line (default: '-').
+    caf_linestyle_model : str, optional
+        Matplotlib linestyle for the model CAF line (default: '-').
+    cdf_linestyle_model : str, optional
+        Matplotlib linestyle for the model CDF line (default: '-').
+    linewidth : float, optional
+        Line width for all plotted lines (default: 0.5).
+    fig : matplotlib.figure.Figure, optional
+        Existing figure to draw into when `new_plot` is False.
+        Ignored if `new_plot` is True.
+    axes : sequence of matplotlib.axes.Axes, optional
+        Existing axes (length 3) to draw into when `new_plot` is False.
+        Ignored if `new_plot` is True.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The figure containing the 1×3 subplots.
+    axes : sequence of matplotlib.axes.Axes
+        The three axes objects for CAF, CDF, and Δ-function, respectively.
+    """
+
+    mean_data = df_long.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+
+    mean_data_emp = df_long_emp.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+
+    if new_plot:
+        fig, axes = plt.subplots(1,3, figsize=(12,3))
+
+    # CAFs
+    sns.lineplot(caf_data, 
+                 linewidth=linewidth,
+                 x='rt_bin', 
+                 y='accuracy', 
+                 hue=congruency_name, 
+                 errorbar=caf_errorbars, 
+                 ax=axes[0],
+                 legend=False, 
+                 hue_order=hue_order, 
+                 palette=palette_model,
+                 linestyle=caf_linestyle_model)
+    
+    
+    sns.lineplot(caf_data_emp, 
+                 linestyle='--',
+                 marker="o", 
+                 errorbar=None, 
+                 legend=legend, 
+                 linewidth=linewidth,
+                 x='rt_bin', 
+                 y='accuracy', 
+                 hue=congruency_name_emp, 
+                 ax=axes[0], 
+                 hue_order=hue_order, 
+                 palette=palette_emp)
+    
+    axes[0].set(ylim=(0, 1))
+    axes[0].set_title('CAF', fontsize=fontsize)
+    axes[0].set_ylabel('CAF', fontsize=fontsize_axes)
+    axes[0].set_xlabel('Bins', fontsize=fontsize_axes)
+
+    # CDFs
+    sns.lineplot(mean_data, 
+                 linewidth=linewidth, 
+                 linestyle=cdf_linestyle_model, 
+                 x='rt', 
+                 y='quantile', 
+                 hue='condition', 
+                 alpha=1, 
+                 ax=axes[1], 
+                 legend=False, 
+                 hue_order=hue_order, 
+                 palette=palette_model)
+    
+    sns.lineplot(mean_data_emp, 
+                 linewidth=linewidth, 
+                 marker="o", 
+                 linestyle='--', 
+                 x='rt', 
+                 y='quantile',
+                 legend=False, 
+                 hue='condition', 
+                 alpha=1, 
+                 ax=axes[1], 
+                 hue_order=hue_order, 
+                 palette=palette_emp)
+    
+    axes[1].set_title('CDF', fontsize=fontsize)
+    axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
+    axes[1].set_xlabel('RT[s]', fontsize=fontsize_axes)
+
+
+    delta_data['mean_qu_bins'] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
+    delta_bins = delta_data.groupby('mean_qu_bins', observed=False)['delta'].mean().reset_index()
+    delta_bins['bin_mid'] = delta_bins['mean_qu_bins'].apply(lambda x: x.mid)
+
+
+    delta_bins = (
+            delta_data
+            .groupby('quantile')[['mean_qu', 'delta']]
+            .mean()
+            .reset_index()
+            .sort_values('mean_qu')
+        )
+
+    delta_data_emp['mean_qu_bins'] = pd.cut(delta_data_emp["mean_qu"], bins=n_delta_bins)
+    delta_bins_emp = delta_data_emp.groupby('mean_qu_bins', observed=False)['delta'].mean().reset_index()
+    delta_bins_emp['bin_mid'] = delta_bins_emp['mean_qu_bins'].apply(lambda x: x.mid)
+
+    delta_bins_emp = (
+            delta_data_emp
+            .groupby('quantile')[['mean_qu', 'delta']]
+                .agg(
+                    mean_qu=('mean_qu', 'mean'),
+                    delta=('delta', 'mean'),
+                    sd_delta=('delta', 'std')
+                    )
+            .reset_index()
+            .sort_values('mean_qu')
+        )
+
+    sns.lineplot(delta_bins,linewidth=linewidth, linestyle=delta_linestyle_model, x='mean_qu', y='delta', legend=False, ax=axes[2], color='black')
+    sns.lineplot(delta_bins_emp,linewidth=linewidth,linestyle='--',marker="o",  x='mean_qu', y='delta', legend=False, ax=axes[2], color='black')
+    
+    axes[2].set_ylabel('$\Delta$', fontsize=fontsize_axes)
+    axes[2].set_xlabel('RT[s]', fontsize=fontsize_axes)
+    axes[2].set_title('$\Delta$-Function', fontsize=fontsize)
+    axes[2].set(xlim=xlim_cdf)
+
+    if set_ylim_delta:
+        axes[2].set(ylim=ylim_delta)
+
+    if legend:
+        axes[0].legend(title='', loc='lower right', fontsize=fontsize_legend, frameon=False)
+
+    for ax in axes:
+        ax.tick_params(axis='x', labelsize=fontsize_ticklabels)  
+        ax.tick_params(axis='y', labelsize=fontsize_ticklabels)  
+
+    fig.tight_layout()
+
+    return fig, axes
+   

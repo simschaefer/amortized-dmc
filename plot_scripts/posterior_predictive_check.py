@@ -33,7 +33,7 @@ if 'executed_from_bash' in arguments:
 
 else:
     
-    network_name = 'updated_priors_sdr_estimated'
+    network_name = 'updated_priors_sdr_fixed'
     fixed_n_obs = 300
     num_resims = 100
     host = 'local'
@@ -70,7 +70,6 @@ narrow_data = narrow_data[narrow_data['participant'].isin(included_parts)]
 wide_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_wide.csv')
 
 wide_data = wide_data[wide_data['participant'].isin(included_parts)]
-
 
 
 empirical_data = pd.concat([narrow_data, wide_data])
@@ -283,6 +282,7 @@ plt.figure()
 
 fig, axes = plt.subplots(2, 5, figsize= (15,5))
 
+fontsize = 22
 
 for spacing in [0, 1]:
 
@@ -311,12 +311,21 @@ for spacing in [0, 1]:
             axes[spacing,j].set_xlabel('')
         
         if spacing == 0:
-            axes[spacing,j].set_title(names[j])
+            axes[spacing,j].set_title(names[j], fontsize = fontsize - 8)
 
-fig.text(.99, 0.75, 'Wide', va='center', ha='left', fontsize=14, rotation=270)
-fig.text(.99, 0.3, 'Narrow', va='center', ha='left', fontsize=14, rotation=270)
+        axes[spacing,j].tick_params(axis='x', labelsize=fontsize - 5)  
+        axes[spacing,j].tick_params(axis='y', labelsize=fontsize - 5)
+        axes[spacing,j].set_xlabel("")
+        axes[spacing,j].set_ylabel("")
+
+
+fig.text(.99, 0.75, 'Wide', va='center', ha='left', fontsize=fontsize - 5, rotation=270)
+fig.text(.99, 0.3, 'Narrow', va='center', ha='left', fontsize=fontsize - 5, rotation=270)
 
 fig.tight_layout()
+
+fig.supxlabel("Empirical", fontsize=fontsize-5, y = -0.08) 
+fig.supylabel("Resimulated", fontsize=fontsize-5, x = -.01) 
 
 
 fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_mean_rt_mean_acc.png', bbox_inches='tight')

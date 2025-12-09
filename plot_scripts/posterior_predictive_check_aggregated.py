@@ -37,7 +37,7 @@ else:
     host = 'local'
 
 
-parent_dir = os.getcwd()
+parent_dir = os.path.dirname(os.getcwd())
 
 print(f'parent_dir: {parent_dir}', flush=True)
 
@@ -88,6 +88,13 @@ samples_wide["spacing"]="wide"
 
 samples_complete_fixed=pd.concat((samples_wide, samples_narrow_fixed))
 
+data_path = parent_dir + '/data_complete/empirical_estimates/'
+
+if not os.path.exists(data_path):
+      os.makedirs(data_path)
+
+samples_complete_fixed.to_csv(data_path + '/empirical_samples_complete_' + network_name_fixed + '.csv')
+
 
 ## Estimate parameters for empirical data ESTIMATED 
 
@@ -100,6 +107,8 @@ samples_wide = dmc_helpers.fit_empirical_data(wide_data, approximator_estimated)
 samples_wide["spacing"]="wide"
 
 samples_complete_estimated=pd.concat((samples_wide, samples_narrow_estimated))
+
+samples_complete_estimated.to_csv(data_path + '/empirical_samples_complete_' + network_name_estimated + '.csv')
 
 
 parts=samples_complete_estimated["participant"].unique()
@@ -196,7 +205,7 @@ data_path = parent_dir + '/data_complete/ppc_data/'
 if not os.path.exists(data_path):
       os.makedirs(data_path)
 
-df_complete.to_csv(data_path + '/ppc_data_raw.csv')
+df_complete.to_csv(data_path + '/ppc_data_raw_' + network_name_fixed + '.csv')
 
 #fig.tight_layout()
 #plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
