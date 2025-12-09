@@ -33,7 +33,13 @@ if 'executed_from_bash' in arguments:
 
 else:
     
-    network_name = 'updated_priors_sdr_fixed'
+    network_names = [
+        'updated_priors_sdr_fixed',
+        'updated_priors_sdr_estimated',
+        'initial_priors_sdr_fixed',
+        'initial_priors_sdr_estimated',
+    ]
+
     fixed_n_obs = 300
     num_resims = 100
     host = 'local'
@@ -44,9 +50,6 @@ else:
     parent_dir = os.getcwd()
 
 
-# RT distributions cumulative?
-cumulative = True
-
 included_parts = np.array([
     275, 808, 810, 833, 837, 845, 916, 985, 1108, 1430, 1507, 1538, 1582, 1583, 1597, 1601,
     1614, 1638, 1657, 1663, 1761, 1768, 1813, 1821, 1824, 3286, 3292, 3487, 3580, 3625, 3754, 3910,
@@ -55,13 +58,30 @@ included_parts = np.array([
     8446, 8521, 8704, 8755, 8785, 8788, 161753, 337788
 ])
 
-model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
-with open(model_specs_path, 'rb') as file:
-    model_specs = pickle.load(file)
+train_idx = np.array([1761, 5281,  845, 1824, 5575, 8755, 8026, 8704, 7813, 1597, 7756,
+       7624, 1108,  837, 7828, 6055,  833, 1821,  985, 1582, 8311, 8785,
+       3286, 4264, 6583, 6585, 3487, 6427, 1430, 6361, 5815, 6262, 5332,
+       1614, 7939, 6214, 8521])
 
-simulator = DMC(**model_specs['simulation_settings'])
-# Load checkpoints
-approximator = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name + '.keras')
+lst_model_specs = {}
+
+simulators = {}
+
+approximators = {}
+
+for network_name in network_names:
+
+    model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
+    with open(model_specs_path, 'rb') as file:
+        model_specs = pickle.load(file)
+    
+    lst_model_specs[network_name] = model_specs
+
+    simulators[network_name] = DMC(**model_specs['simulation_settings'])
+
+    approximators[network_name] = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name + '.keras')
+
+
 
 narrow_data = pd.read_csv(parent_dir + '/empirical_data/experiment_data_narrow.csv')
 
@@ -178,7 +198,7 @@ for part in parts:
         aggr_data_resim = data_resimulated.groupby("condition_label").mean("accuracy")
         aggr_data.reset_index(inplace=True)
         
-        # recode congruency empirical data
+        # recode congruency empirical data##
         aggr_data["condition_label"] = aggr_data["congruency_num"].map({0.0: "Congruent", 1.0: "Incongruent"})
         
         # compute accuracies resimulated data
@@ -220,7 +240,7 @@ for part in parts:
     fig.get_figure()
 
 
-    fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_' + str(part) + '.png')
+    #fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_' + str(part) + '.png')
     
     
 df_aggr_resim = pd.concat(aggr_resim_list)
@@ -311,10 +331,10 @@ for spacing in [0, 1]:
             axes[spacing,j].set_xlabel('')
         
         if spacing == 0:
-            axes[spacing,j].set_title(names[j], fontsize = fontsize - 8)
+            axes[spacing,j].set_title(names[j], fontsize = fontsize - 5)
 
-        axes[spacing,j].tick_params(axis='x', labelsize=fontsize - 5)  
-        axes[spacing,j].tick_params(axis='y', labelsize=fontsize - 5)
+        axes[spacing,j].tick_params(axis='x', labelsize=fontsize - 8)  
+        axes[spacing,j].tick_params(axis='y', labelsize=fontsize - 8)
         axes[spacing,j].set_xlabel("")
         axes[spacing,j].set_ylabel("")
 
@@ -328,7 +348,7 @@ fig.supxlabel("Empirical", fontsize=fontsize-5, y = -0.08)
 fig.supylabel("Resimulated", fontsize=fontsize-5, x = -.01) 
 
 
-fig.savefig(parent_dir + '/plots/ppc/' + network_name + '/'  + network_name + '_mean_rt_mean_acc.png', bbox_inches='tight')
+fig.savefig(parent_dir + '/plots/ppc/' + network_name + '_mean_rt_mean_acc.png', bbox_inches='tight')
     
 
 

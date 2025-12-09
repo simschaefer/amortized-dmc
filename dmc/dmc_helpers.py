@@ -7,6 +7,9 @@ import copy
 import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
+from typing import Tuple, Optional, Mapping, Sequence
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 
 
 def hdi(samples, hdi_prob=0.95):
@@ -513,7 +516,26 @@ def param_labels(param_names):
     return param_labels
 
 
-def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=True, subj_id='Subject', hdi_color='black', hdi_alpha=1, x_prop=0.05, y_prop=0.85, text_rotation=0, zero_line=True, x_lower=-1.2, x_upper=1.2):
+def smd_samples(samples1, 
+                samples2, 
+                param_names, 
+                num_samples=1000, 
+                sharex=True, 
+                subj_id='Subject', 
+                hdi_color='white', 
+                hdi_alpha=1, 
+                x_prop=0.05, 
+                y_prop=0.85, 
+                text_rotation=0, 
+                zero_line=True,
+                x_lower=-1.2, 
+                x_upper=1.2,
+                fontsize = 15,
+                fontsize_ticklabels=12,
+                fontsize_label=15,
+                fontsize_axis_labels=15,
+                figsize=(15,3),
+                supxlabel='Standardized Mean Difference $d_i$'):
     """
     Computes and visualizes Cohen's d for paired posterior parameter samples across multiple participants.
 
@@ -631,7 +653,7 @@ def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=T
     data_d = pd.DataFrame(cohens_ds, columns = param_names)
 
     
-    fig, axes = plt.subplots(1, len(param_names), figsize=(15,3), sharex=sharex)
+    fig, axes = plt.subplots(1, len(param_names), figsize=figsize, sharex=sharex)
 
     for p, ax in zip(param_names, axes):
 
@@ -649,19 +671,21 @@ def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=T
 
         # HDI as shaded region with a different, subtle color
         sns.kdeplot(data=data_d, x=p, ax=ax, color='#132a70', fill=True, alpha=0.3,linewidth=0)
-        ax.axvspan(ax.get_xlim()[0], hdi_bounds[0], color='white', alpha=1)  # Left of HDI
-        ax.axvspan(hdi_bounds[1], ax.get_xlim()[1], color='white', alpha=1)  # Right of HDI
+        ax.axvspan(ax.get_xlim()[0], hdi_bounds[0], color=hdi_color, alpha= hdi_alpha)  # Left of HDI
+        ax.axvspan(hdi_bounds[1], ax.get_xlim()[1], color=hdi_color, alpha= hdi_alpha)  # Right of HDI
         sns.kdeplot(data=data_d, x=p, ax=ax, color='#132a70', fill=False, alpha=1,linewidth=1)
 
         suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
 
         label = suff + p + "$"
 
-        ax.set_title(label)
+        ax.set_title(label, fontsize=fontsize)
         ax.set_xlabel('')
+        ax.tick_params(axis='x', labelsize=fontsize_ticklabels)  
+
 
         if p == 'A':
-            ax.set_ylabel('Density')
+            ax.set_ylabel('Density', fontsize=fontsize_axis_labels)
         else:
             ax.set_ylabel('')
 
@@ -671,9 +695,9 @@ def cohens_d_samples(samples1, samples2, param_names, num_samples=1000, sharex=T
 
         x_range = xmax-xmin
 
-        ax.text(xmin + x_range*x_prop, ymax*y_prop, '$d = $' + str(round(post_mean, 2)), fontsize=12, color='black', rotation=0)
+        ax.text(xmin + x_range*x_prop, ymax*y_prop, '$d = $' + str(round(post_mean, 2)), fontsize=fontsize_label, color='black', rotation=0)
     
-    fig.supxlabel('Standardized Mean Difference $d_i$', fontsize=14)
+    fig.supxlabel(supxlabel, fontsize=fontsize)
     fig.tight_layout()
 
     return data_d, fig
