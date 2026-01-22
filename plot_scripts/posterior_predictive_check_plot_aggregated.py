@@ -30,8 +30,8 @@ if 'executed_from_bash' in arguments:
     network_name_estimated = str(arguments[3])
 
 else:
-    network_name_fixed = 'initial_priors_sdr_fixed'
-    network_name_estimated = 'initial_priors_sdr_estimated'
+    network_name_fixed = 'updated_priors_sdr_fixed'
+    network_name_estimated = 'updated_priors_sdr_estimated'
     fixed_n_obs = 300
     num_resims = 100
     host = 'local'
@@ -79,7 +79,7 @@ n_delta_bins = 10
 
 n_rt_bins = 5
 
-for model in ['initial_priors_sdr_fixed','initial_priors_sdr_estimated']:
+for model in [network_name_fixed,network_name_estimated]:
 
     for spacing in ['narrow', 'wide']:
 
@@ -178,8 +178,9 @@ for model in ['initial_priors_sdr_fixed','initial_priors_sdr_estimated']:
                                              df_long=df_long,
                                              df_long_emp=df_long_emp,
                                              congruency_name='condition_label',
-                                             congruency_name_emp='condition_label',
-                                             set_ylim=True)
+                                             congruency_name_emp='condition_label'
+                                             #set_ylim=True
+                                             )
 
             
             fig.savefig(parent_dir + '/plots/ppc' + model + spacing + data_split + '_model_fit_aggregated.png')

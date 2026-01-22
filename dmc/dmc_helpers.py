@@ -970,6 +970,11 @@ def plot_fit(
     
     axes[0].set(ylim=(0, 1))
     axes[0].set_title('CAF', fontsize=fontsize)
+                 palette=palette_emp)
+    
+    axes[1].set_title('CDF', fontsize=fontsize)
+    axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
+    axes[1].set_xlabel('RT[s]', fontsize=fontsize_axes)
     axes[0].set_ylabel('CAF', fontsize=fontsize_axes)
     axes[0].set_xlabel('Bins', fontsize=fontsize_axes)
 
