@@ -285,10 +285,7 @@ class DMC:
         conditions = np.repeat(np.arange(self.num_conditions), obs_per_condition)
 
         # precompute vector of time steps and 2D-noise
-        if self.a_value != 2:
-            t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
-        else:
-            t = np.linspace(start=0, stop=self.tmax, num=int(self.tmax / self.dt))
+        t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
 
         noise = np.random.normal(size=(num_obs, self.tmax))
         non_decision_ts = np.random.normal(size=num_obs, loc=mu_r, scale=sd_r)
