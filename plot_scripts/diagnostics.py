@@ -56,69 +56,13 @@ with open(model_specs_path, 'rb') as file:
 # set simulator
 simulator = DMC(**model_specs['simulation_settings'])
 
-# set adapter (sdr fixed /estimated)
-if simulator.sdr_fixed == 0:
-
-    adapter = (
-        bf.adapters.Adapter()
-        .drop('sd_r') # <- sd_r is dropped if fixed
-        .convert_dtype("float64", "float32")
-        .sqrt("num_obs")
-        .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
-        .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
-        .standardize(include="inference_variables")
-        .rename("num_obs", "inference_conditions")
-    )
-
-else:
-
-    adapter = (
-        bf.adapters.Adapter()
-        .convert_dtype("float64", "float32")
-        .sqrt("num_obs")
-        .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
-        .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
-        .standardize(include="inference_variables")
-        .rename("num_obs", "inference_conditions")
-    )
-
-
-# Specify Inferene Network
-inference_net = bf.networks.FlowMatching(**model_specs['inference_network_settings'])
-
-
-# Specify Summary Network
-summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
-
-# Put everything together in workflow object
-workflow = bf.BasicWorkflow(
-    simulator=simulator,
-    adapter=adapter,
-    initial_learning_rate=model_specs['learning_rate'],
-    inference_network=inference_net,
-    summary_network=summary_net,
-    checkpoint_filepath= parent_dir + '/training_checkpoints',
-    checkpoint_name=network_name,
-    inference_variables=model_specs['simulation_settings']['param_names']
-)
-
 # load training checkpoints
 approximator = keras.saving.load_model(network_dir)
-
-# add loaded approximator to workflow object
-workflow.approximator = approximator
 
 # fix number of simulated observations:
 simulator.fixed_num_obs = fixed_n_obs
 
 # simulate 500 data set:
-#val_data = simulator.sample(500)
-
-val_data_path = parent_dir + '/data_complete/data_offline_training/data_offline_validation_online_training_dmc_optimized_winsim_priors_sdr_fixed_200_818801.pickle'
-
-with open(val_data_path, 'rb') as file:
-    val_data = pickle.load(file)
-
 val_data = simulator.sample(500)
 
 # Check if number of observations match fixed_n_obs:
