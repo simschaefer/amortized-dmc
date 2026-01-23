@@ -7,9 +7,70 @@ import copy
 import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
-from typing import Tuple, Optional, Mapping, Sequence, Union, Dict
+from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+
+
+
+def dict_to_df(post_samples: Dict[str, np.ndarray]) -> pd.DataFrame:
+    """
+    Convert a dictionary of posterior samples into a long-format pandas DataFrame.
+
+    This function assumes that each entry in `post_samples` is a NumPy array
+    indexed by subject (or unit) along the first dimension. For each subject,
+    all remaining dimensions are flattened into a single vector of samples.
+    The result is a concatenated DataFrame with one row per sample and an
+    explicit subject identifier column.
+
+    Parameters
+    ----------
+    post_samples : Dict[str, np.ndarray]
+        Dictionary mapping parameter names to NumPy arrays of posterior samples.
+        All arrays must have the same first dimension size (number of subjects).
+        Expected shape per entry: (n_ids, ..., ...), where remaining dimensions
+        represent samples and are flattened.
+
+    Returns
+    -------
+    pd.DataFrame
+        Long-format DataFrame containing posterior samples with:
+        - one column per parameter in `post_samples`
+        - an 'id' column identifying the subject or unit
+        - one row per flattened posterior sample per subject
+
+    Raises
+    ------
+    ValueError
+        If input arrays do not share the same size along the first dimension.
+    """
+    if not post_samples:
+        return pd.DataFrame()
+
+    # Validate consistent number of IDs across parameters
+    n_ids = {v.shape[0] for v in post_samples.values()}
+    if len(n_ids) != 1:
+        raise ValueError("All arrays in post_samples must share the same first dimension size.")
+
+    n_ids = n_ids.pop()
+    samples_list = []
+
+    for idx in range(n_ids):
+        samples_dict = {
+            param: values[idx].ravel()
+            for param, values in post_samples.items()
+        }
+
+        df_single = pd.DataFrame(samples_dict)
+        df_single["id"] = idx
+        samples_list.append(df_single)
+
+    df_complete = pd.concat(samples_list, ignore_index=True)
+
+    return df_complete
+
+
+
 
 
 def hdi(samples, hdi_prob=0.95):
@@ -516,26 +577,29 @@ def param_labels(param_names):
     return param_labels
 
 
-def smd_samples(samples1, 
-                samples2, 
-                param_names, 
-                num_samples=1000, 
-                sharex=True, 
-                subj_id='Subject', 
-                hdi_color='white', 
-                hdi_alpha=1, 
-                x_prop=0.05, 
-                y_prop=0.85, 
-                text_rotation=0, 
-                zero_line=True,
-                x_lower=-1.2, 
-                x_upper=1.2,
-                fontsize = 15,
-                fontsize_ticklabels=12,
-                fontsize_label=15,
-                fontsize_axis_labels=15,
-                figsize=(15,3),
-                supxlabel='Standardized Mean Difference $d_i$'):
+
+def smd_samples(
+    samples1: pd.DataFrame,
+    samples2: pd.DataFrame,
+    param_names: List[str],
+    num_samples: int = 1000,
+    sharex: bool = True,
+    subj_id: str = 'Subject',
+    hdi_color: str = 'white',
+    hdi_alpha: float = 1.0,
+    x_prop: float = 0.05,
+    y_prop: float = 0.85,
+    text_rotation: float = 0.0,
+    zero_line: bool = True,
+    x_lower: float = -1.2,
+    x_upper: float = 1.2,
+    fontsize: int = 15,
+    fontsize_ticklabels: int = 12,
+    fontsize_label: int = 15,
+    fontsize_axis_labels: int = 15,
+    figsize: Tuple[float, float] = (15.0, 3.0),
+    supxlabel: str = 'Standardized Mean Difference $d_i$'
+) -> Tuple[pd.DataFrame, Figure]:
     """
     Computes and visualizes Cohen's d for paired posterior parameter samples across multiple participants.
 
@@ -607,7 +671,7 @@ def smd_samples(samples1,
 
     Example:
     --------
-    >>> cohens_d_samples(samples_control, samples_treatment, ["A", "tau", "mu_c"])
+    >>> smd_samples(samples_control, samples_treatment, ["A", "tau", "mu_c"])
     """
 
     num_params = len(param_names)
