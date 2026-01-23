@@ -7,7 +7,7 @@ import copy
 import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
-from typing import Tuple, Optional, Mapping, Sequence, Union
+from typing import Tuple, Optional, Mapping, Sequence, Union, Dict
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
@@ -703,31 +703,82 @@ def smd_samples(samples1,
     return data_d, fig
 
 
-def format_sim_data(sim_data, congruency_coding=1, only_convergents=True):
 
-    batch_size = sim_data['rt'].shape[0]
+def format_sim_data(
+    sim_data: Dict[str, np.ndarray],
+    congruency_coding: int = 0,
+    only_convergents: bool = True
+) -> pd.DataFrame:
+    """
+    Format simulated behavioral data into a long-format pandas DataFrame.
+
+    This function takes batched simulation output (reaction times, accuracy,
+    and condition codes) and converts it into a single concatenated DataFrame
+    suitable for downstream statistical analysis or visualization (e.g. compute_stats, plot_stats).
+
+    Parameters
+    ----------
+    sim_data : Dict[str, np.ndarray]
+        Dictionary containing simulation outputs with the following keys:
+        - 'rt': Reaction times, shape (batch_size, n_trials, 1)
+        - 'accuracy': Accuracy values, shape (batch_size, n_trials, 1)
+        - 'conditions': Condition codes, shape (batch_size, n_trials, 1)
+    congruency_coding : int, optional
+        Integer code indicating a congruent condition in `conditions`.
+        All other values are treated as incongruent. Default is 0.
+    only_convergents : bool, optional
+        If True, remove trials with reaction time equal to -1,
+        which are assumed to represent non-convergent simulations.
+        Default is True.
+
+    Returns
+    -------
+    pd.DataFrame
+        Long-format DataFrame with one row per trial and the following columns:
+        - 'rt': Reaction time
+        - 'accuracy': Accuracy value
+        - 'conditions': Condition code
+        - 'batch_nr': Batch index
+        - 'congruency_name': 'congruent' or 'incongruent'
+        - 'accuracy_name': 'correct' or 'incorrect'
+    """
+    batch_size: int = sim_data['rt'].shape[0]
 
     behav_keys = ['rt', 'accuracy', 'conditions']
+    behav_data: Dict[str, np.ndarray] = {k: sim_data[k] for k in behav_keys}
 
-    behav_data = {k: sim_data[k] for k in behav_keys}
-
-    df_lst = []
-
+    df_list = []
     batch_name = 'batch_nr'
     rt_var = 'rt'
 
     for i in range(batch_size):
-        df_single = pd.DataFrame(np.stack((behav_data['rt'][i,:,:],behav_data['accuracy'][i,:,:], behav_data['conditions'][i,:,:]), axis=1)[:,:,0])
-        df_single[batch_name] = i
-        df_single.columns = [rt_var, 'accuracy', 'conditions', batch_name]
-        df_single['congruency_name'] = ['congruent' if x == congruency_coding else 'incongruent' for x in df_single['conditions']]
-        df_single['accuracy_name'] = ['correct' if x == 1. else 'incorrect' for x in df_single['accuracy']]
-        df_lst.append(df_single)
+        stacked = np.stack(
+            (
+                behav_data['rt'][i, :, :],
+                behav_data['accuracy'][i, :, :],
+                behav_data['conditions'][i, :, :]
+            ),
+            axis=1
+        )[:, :, 0]
 
-    df_complete = pd.concat(df_lst)
+        df_single = pd.DataFrame(stacked, columns=[rt_var, 'accuracy', 'conditions'])
+        df_single[batch_name] = i
+
+        df_single['congruency_name'] = [
+            'congruent' if x == congruency_coding else 'incongruent'
+            for x in df_single['conditions']
+        ]
+        df_single['accuracy_name'] = [
+            'correct' if x == 1.0 else 'incorrect'
+            for x in df_single['accuracy']
+        ]
+
+        df_list.append(df_single)
+
+    df_complete = pd.concat(df_list, ignore_index=True)
 
     if only_convergents:
-        df_complete = df_complete[df_complete['rt'] != -1]
+        df_complete = df_complete[df_complete[rt_var] != -1]
 
     return df_complete
 
@@ -885,7 +936,7 @@ def plot_stats(
     congruency_name: str = "congruency_name",
     n_delta_bins: int = 10,
     fontsize: int = 24,
-    fontsize_axes: int = 20,
+    fontsize_axes: int = 15,
     delta_ylim: Optional[Tuple[float, float]] = None,
     delta_xlim: Optional[Tuple[float, float]] = None,
 ) -> Tuple[Figure, Sequence[Axes]]:
@@ -938,7 +989,7 @@ def plot_stats(
     alpha : float, default=0.5
         Opacity for individual CDF trajectories (panel 2). The mean CDF is plotted with
         opacity 1.0.
-
+df_long
     id_name : str, default='batch_nr'
         Column name used as an identifier for individual trajectories in the CDF and
         Δ-function panels.
@@ -1015,8 +1066,8 @@ def plot_stats(
 
     axes[1].set_title("CDF", fontsize=fontsize)
     axes[1].set_xlabel("RT[s]", fontsize=fontsize_axes)
-    axes[1].get_legend().remove()
     axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
+    axes[1].get_legend().remove()
 
     delta_data["mean_qu_bins"] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
     delta_bins = delta_data.groupby("mean_qu_bins")["delta"].mean().reset_index()
@@ -1040,7 +1091,7 @@ def plot_stats(
         hue=id_name,
         legend=False,
         ax=axes[2],
-        alpha=0.05,
+        alpha=alpha,
     )
 
     # aggregated Deltas
@@ -1077,8 +1128,8 @@ def plot_fit(
     delta_data_emp: pd.DataFrame,
     caf_data: pd.DataFrame,
     caf_data_emp: pd.DataFrame,
-    df_long: pd.DataFrame,
-    df_long_emp: pd.DataFrame,
+    cdf_data: pd.DataFrame,
+    cdf_data_emp: pd.DataFrame,
     congruency_name: str = "congruency_name",
     congruency_name_emp: str = "congruency_num",
     n_delta_bins: int = 10,
@@ -1123,10 +1174,10 @@ def plot_fit(
     caf_data_emp : pandas.DataFrame
         Empirical CAF data with columns including:
         ['rt_bin', 'accuracy', <congruency_name_emp>].
-    df_long : pandas.DataFrame
+    cdf_data : pandas.DataFrame
         Long-format model RT data with columns:
         ['quantile', 'condition', 'rt'].
-    df_long_emp : pandas.DataFrame
+    cdf_data_emp : pandas.DataFrame
         Long-format empirical RT data with columns:
         ['quantile', 'condition', 'rt'].
     congruency_name : str, optional
@@ -1194,9 +1245,9 @@ def plot_fit(
         The three axes objects for CAF, CDF, and Δ-function, respectively.
     """
 
-    mean_data = df_long.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+    mean_data = cdf_data.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
 
-    mean_data_emp = df_long_emp.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+    mean_data_emp = cdf_data_emp.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
 
     if new_plot:
         fig, axes = plt.subplots(1,3, figsize=(12,3))
