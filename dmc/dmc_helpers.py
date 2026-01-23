@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+import numpy.typing as npt
 
 
 
@@ -18,7 +19,7 @@ def dict_to_df(post_samples: Dict[str, np.ndarray]) -> pd.DataFrame:
     Convert a dictionary of posterior samples into a long-format pandas DataFrame.
 
     This function assumes that each entry in `post_samples` is a NumPy array
-    indexed by subject (or unit) along the first dimension. For each subject,
+    indexed by subject (or batch) along the first dimension (output of approximator.sample()). For each subject,
     all remaining dimensions are flattened into a single vector of samples.
     The result is a concatenated DataFrame with one row per sample and an
     explicit subject identifier column.
@@ -69,24 +70,23 @@ def dict_to_df(post_samples: Dict[str, np.ndarray]) -> pd.DataFrame:
 
     return df_complete
 
-
-
-
-
-def hdi(samples, hdi_prob=0.95):
+def hdi(
+    samples: Sequence[float] | npt.NDArray[np.floating],
+    hdi_prob: float = 0.95
+) -> Tuple[float, float]:
     """
     Compute the Highest Density Interval (HDI) of a sample distribution.
 
     Parameters
     ----------
-    samples : array-like
-        1D array of posterior samples.
+    samples : Sequence[float] or numpy.ndarray
+        1D array-like object of posterior samples.
     hdi_prob : float
         The desired probability for the HDI (e.g., 0.95 for 95% HDI).
 
     Returns
     -------
-    hdi_interval : tuple
+    Tuple[float, float]
         Lower and upper bounds of the HDI.
     """
     samples = np.asarray(samples)
@@ -104,8 +104,8 @@ def hdi(samples, hdi_prob=0.95):
     intervals = sorted_samples[interval_idx_inc:] - sorted_samples[:n_intervals]
     min_idx = np.argmin(intervals)
 
-    hdi_min = sorted_samples[min_idx]
-    hdi_max = sorted_samples[min_idx + interval_idx_inc]
+    hdi_min = float(sorted_samples[min_idx])
+    hdi_max = float(sorted_samples[min_idx + interval_idx_inc])
 
     return hdi_min, hdi_max
 
@@ -584,7 +584,7 @@ def smd_samples(
     param_names: List[str],
     num_samples: int = 1000,
     sharex: bool = True,
-    subj_id: str = 'Subject',
+    subj_id: str = 'id',
     hdi_color: str = 'white',
     hdi_alpha: float = 1.0,
     x_prop: float = 0.05,
@@ -678,8 +678,6 @@ def smd_samples(
     cohens_ds = np.ones((num_samples,num_params))
 
     parts = samples1[subj_id].unique()
-
-    n_parts = parts.shape[0]
 
     samples1['sample_id'] = np.tile(np.random.permutation(num_samples), parts.shape[0]) 
     samples2['sample_id'] = np.tile(np.random.permutation(num_samples), parts.shape[0])
@@ -1042,7 +1040,7 @@ def plot_stats(
         - ``'accuracy'``: Accuracy per bin (y-axis of CAF).
         - A column named by ``congruency_name``: Grouping variable for CAF lines.
 
-    df_long : pandas.DataFrame
+    cdf_data : pandas.DataFrame
         Long-format data for the CDF panel. Must contain at least:
 
         - ``'rt'``: Reaction times in seconds (x-axis of CDF).
@@ -1053,7 +1051,7 @@ def plot_stats(
     alpha : float, default=0.5
         Opacity for individual CDF trajectories (panel 2). The mean CDF is plotted with
         opacity 1.0.
-df_long
+cdf_data
     id_name : str, default='batch_nr'
         Column name used as an identifier for individual trajectories in the CDF and
         Δ-function panels.
