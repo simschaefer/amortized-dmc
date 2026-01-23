@@ -7,7 +7,7 @@ import copy
 import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
-from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List
+from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List, Any
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import numpy.typing as npt
@@ -159,7 +159,10 @@ def load_model_specs(model_specs, network_name):
     return simulator, adapter, inference_net, summary_net, workflow
 
 
-def format_empirical_data(data, var_names=['rt', 'accuracy', "congruency_num"]):
+def format_empirical_data(
+    data: pd.DataFrame,
+    var_names: Sequence[str] = ("rt", "accuracy", "congruency_num"),
+) -> Dict[str, np.ndarray]:
     """
     Formats empirical behavioral data into a structured dictionary for model inference.
 
@@ -295,7 +298,12 @@ def fit_empirical_data(data, approximator, id_label="participant", var_names=['r
     return data_samples_complete
 
 
-def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sbc=1):
+def weighted_metric_sum(
+    metrics_table: pd.DataFrame,
+    weight_recovery: float = 1.0,
+    weight_pc: float = 1.0,
+    weight_sbc: float = 1.0,
+) -> float:
     """
     Computes a weighted sum of model evaluation metrics to produce a single scalar score.
 
@@ -349,7 +357,15 @@ def weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sb
     
     return weighted_sum
 
-def resim_data(post_sample_data, num_obs, simulator, part, num_resims = 50, param_names = ["A", "tau", "mu_c", "mu_r", "b"]):
+
+def resim_data(
+    post_sample_data: pd.DataFrame,
+    num_obs: int,
+    simulator: Any,
+    part: Union[str, int],
+    num_resims: int = 50,
+    param_names: Sequence[str] = ("A", "tau", "mu_c", "mu_r", "b"),
+) -> pd.DataFrame:
     """
     Resimulates data based on posterior parameter samples for a given participant.
 
@@ -679,8 +695,18 @@ def smd_samples(
 
     parts = samples1[subj_id].unique()
 
-    samples1['sample_id'] = np.tile(np.random.permutation(num_samples), parts.shape[0]) 
-    samples2['sample_id'] = np.tile(np.random.permutation(num_samples), parts.shape[0])
+    # deterministic draw index within each participant
+    samples1 = samples1.copy()
+    samples2 = samples2.copy()
+
+    samples1["sample_id"] = samples1.groupby(subj_id).cumcount()
+    samples2["sample_id"] = samples2.groupby(subj_id).cumcount()
+
+    # choose the same draw indices for both conditions
+    draws = np.random.choice(num_samples, size=num_samples, replace=False)
+
+    samples1 = samples1[samples1["sample_id"].isin(draws)]
+    samples2 = samples2[samples2["sample_id"].isin(draws)]
 
 
     for j,p in enumerate(param_names):
@@ -708,7 +734,8 @@ def smd_samples(
             d = np.mean(m1) - np.mean(m2)
 
             diff = m1 - m2
-            mean_d = d/np.std(diff, ddof=1)
+            sd = np.std(diff, ddof=1)
+            mean_d = np.nan if sd == 0 else d / sd
 
             cohens_ds[i,j] = mean_d
 
@@ -914,17 +941,6 @@ def compute_stats(
 
     Returns
     -------
-    delta_data : pandas.DataFrame
-        Wide-format DataFrame with per-``id_name`` quantiles for each congruency level,
-        plus derived columns ``delta`` and ``mean_qu``. Expected columns include:
-
-        - ``{id_name}``
-        - ``'quantile'`` : float
-        - ``'congruent'`` : float
-        - ``'incongruent'`` : float
-        - ``'delta'`` : float
-        - ``'mean_qu'`` : float
-
     caf_data : pandas.DataFrame
         DataFrame containing conditional accuracy values per RT bin. Expected columns:
 
@@ -941,6 +957,17 @@ def compute_stats(
         - ``'condition'`` : str
         - ``'rt'`` : float
 
+    delta_data : pandas.DataFrame
+        Wide-format DataFrame with per-``id_name`` quantiles for each congruency level,
+        plus derived columns ``delta`` and ``mean_qu``. Expected columns include:
+
+        - ``{id_name}``
+        - ``'quantile'`` : float
+        - ``'congruent'`` : float
+        - ``'incongruent'`` : float
+        - ``'delta'`` : float
+        - ``'mean_qu'`` : float
+
     Raises
     ------
     KeyError
@@ -952,7 +979,7 @@ def compute_stats(
 
     Examples
     --------
-    >>> delta_data, caf_data, cdf_data = compute_stats(df_complete, id_name="subject_id")
+    >>> caf_data, cdf_data, delta_data = compute_stats(df_complete, id_name="subject_id")
     >>> # Pass outputs to plotting utilities
     >>> fig, axes = plot_stats(delta_data, caf_data, cdf_data, id_name="subject_id")
     """
@@ -968,10 +995,12 @@ def compute_stats(
         .assign(mean_qu=lambda df: (df["incongruent"] + df["congruent"]) / 2)
     )
 
-    df_complete["rt_bin"] = pd.qcut(df_complete["rt"], q=n_rt_bins, labels=False)
+    df = df_complete.copy()
+
+    df["rt_bin"] = pd.qcut(df["rt"], q=n_rt_bins, labels=False)
 
     caf_data = (
-        df_complete.groupby([id_name, congruency_name, "rt_bin"])["accuracy"]
+        df.groupby([id_name, congruency_name, "rt_bin"])["accuracy"]
         .mean()
         .reset_index()
         .rename(columns={"level_2": "quantile"})
@@ -1048,10 +1077,10 @@ def plot_stats(
         - ``'condition'``: Condition label for grouping/colouring.
         - A column named by ``id_name``: Identifier for individual trajectories.
 
-    alpha : float, default=0.5
+    alpha : float, default=0.05
         Opacity for individual CDF trajectories (panel 2). The mean CDF is plotted with
         opacity 1.0.
-cdf_data
+
     id_name : str, default='batch_nr'
         Column name used as an identifier for individual trajectories in the CDF and
         Δ-function panels.
@@ -1173,11 +1202,10 @@ cdf_data
     axes[2].set_xlabel("RT[s]", fontsize=fontsize_axes)
     axes[2].set_title("$\\Delta$-Function", fontsize=fontsize)
 
-    if delta_ylim:
-        axes[2].set(ylim=(0, 0.07))
-
-    if delta_xlim:
-        axes[2].set(xlim=(0.35, 0.63))
+    if delta_ylim is not None:
+        axes[2].set(ylim=delta_ylim)
+    if delta_xlim is not None:
+        axes[2].set(xlim=delta_xlim)
 
     fig.tight_layout()
 
