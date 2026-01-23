@@ -7,7 +7,7 @@ import copy
 import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
-from typing import Tuple, Optional, Mapping, Sequence
+from typing import Tuple, Optional, Mapping, Sequence, Union
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
@@ -732,84 +732,344 @@ def format_sim_data(sim_data, congruency_coding=1, only_convergents=True):
     return df_complete
 
 
-def compute_stats(df_complete, id_name='batch_nr', congruency_name='congruency_name', n_rt_bins=5, quantiles=np.arange(0.1, 1, 0.1)):
+def compute_stats(
+    df_complete: pd.DataFrame,
+    id_name: str = "batch_nr",
+    congruency_name: str = "congruency_name",
+    n_rt_bins: int = 5,
+    quantiles: Union[np.ndarray, Sequence[float]] = np.arange(0.1, 1.0, 0.1),
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Compute distributional summary statistics for reaction-time (RT) data, producing
+    inputs suitable for CAF, CDF, and Δ-function plots.
 
+    This function derives three DataFrames:
+
+    1. **Δ-function data (`delta_data`)**:
+       Quantiles of RT computed *only on correct trials* (``accuracy == 1``) for each
+       ``id_name`` × ``congruency_name`` group, then pivoted to wide format with
+       separate columns per congruency level (expected: ``'congruent'`` and
+       ``'incongruent'``). It additionally computes:
+
+       - ``delta = incongruent - congruent``
+       - ``mean_qu = (incongruent + congruent) / 2``
+
+    2. **CAF data (`caf_data`)**:
+       Mean accuracy per RT bin (quantile bins over ``rt``), stratified by
+       ``id_name`` × ``congruency_name`` × ``rt_bin``.
+
+    3. **CDF data (`cdf_data`)**:
+       Long-format representation of the wide quantile RTs from `delta_data`, with
+       columns ``[id_name, quantile, condition, rt]`` suitable for CDF plotting.
+
+    Parameters
+    ----------
+    df_complete : pandas.DataFrame
+        Trial-level (long-format) data containing RTs and accuracy. Required columns:
+
+        - ``'rt'`` : float
+            Reaction time (typically seconds).
+        - ``'accuracy'`` : int | bool | float
+            Trial accuracy indicator. Trials with ``accuracy == 1`` are treated as
+            correct for Δ-function quantiles.
+        - ``{id_name}`` : hashable (e.g., int | str)
+            Identifier for subject/session/batch.
+        - ``{congruency_name}`` : str-like / categorical
+            Congruency label. The Δ-function computation assumes that the pivot will
+            yield columns named ``'congruent'`` and ``'incongruent'``.
+
+        Notes
+        -----
+        The function adds/overwrites a column ``'rt_bin'`` in ``df_complete`` (in-place)
+        computed via ``pandas.qcut``.
+
+    id_name : str, default='batch_nr'
+        Column name identifying independent units (e.g., participant, session, batch).
+
+    congruency_name : str, default='congruency_name'
+        Column name indicating congruency condition. For downstream computations,
+        the values are expected to include levels that pivot to columns named
+        ``'congruent'`` and ``'incongruent'``.
+
+    n_rt_bins : int, default=5
+        Number of quantile bins used to discretize RTs for the CAF computation.
+        Implemented with ``pandas.qcut`` (approximately equal-sized bins).
+
+    quantiles : numpy.ndarray or Sequence[float], default=np.arange(0.1, 1.0, 0.1)
+        Quantile levels at which to compute RT quantiles for correct trials. Values
+        should lie in the open interval (0, 1].
+
+    Returns
+    -------
+    delta_data : pandas.DataFrame
+        Wide-format DataFrame with per-``id_name`` quantiles for each congruency level,
+        plus derived columns ``delta`` and ``mean_qu``. Expected columns include:
+
+        - ``{id_name}``
+        - ``'quantile'`` : float
+        - ``'congruent'`` : float
+        - ``'incongruent'`` : float
+        - ``'delta'`` : float
+        - ``'mean_qu'`` : float
+
+    caf_data : pandas.DataFrame
+        DataFrame containing conditional accuracy values per RT bin. Expected columns:
+
+        - ``{id_name}``
+        - ``{congruency_name}``
+        - ``'rt_bin'`` : int
+        - ``'accuracy'`` : float
+
+    cdf_data : pandas.DataFrame
+        Long-format CDF-ready DataFrame with columns:
+
+        - ``{id_name}``
+        - ``'quantile'`` : float
+        - ``'condition'`` : str
+        - ``'rt'`` : float
+
+    Raises
+    ------
+    KeyError
+        If required columns are missing from ``df_complete``.
+    ValueError
+        If ``pandas.qcut`` fails (e.g., due to too many duplicate RT values causing
+        non-unique bin edges), or if the required congruency levels do not produce
+        ``'congruent'`` and ``'incongruent'`` columns after pivoting.
+
+    Examples
+    --------
+    >>> delta_data, caf_data, cdf_data = compute_stats(df_complete, id_name="subject_id")
+    >>> # Pass outputs to plotting utilities
+    >>> fig, axes = plot_stats(delta_data, caf_data, cdf_data, id_name="subject_id")
+    """
     delta_data = (
-        df_complete
-        .groupby([id_name, congruency_name])['rt']
+        df_complete[df_complete["accuracy"] == 1]
+        .groupby([id_name, congruency_name])["rt"]
         .quantile(quantiles)
         .reset_index()
-        .rename(columns={'level_2': 'quantile'})
-        .pivot(index=[id_name, "quantile"], columns=[congruency_name], values='rt')
+        .rename(columns={"level_2": "quantile"})
+        .pivot(index=[id_name, "quantile"], columns=[congruency_name], values="rt")
         .reset_index()
-        .assign(delta=lambda df: df['incongruent'] - df['congruent'])
-        .assign(mean_qu=lambda df: (df['incongruent'] + df['congruent'])/2)
+        .assign(delta=lambda df: df["incongruent"] - df["congruent"])
+        .assign(mean_qu=lambda df: (df["incongruent"] + df["congruent"]) / 2)
     )
 
-    df_complete['rt_bin'] = pd.qcut(df_complete['rt'], q=n_rt_bins, labels=False)
+    df_complete["rt_bin"] = pd.qcut(df_complete["rt"], q=n_rt_bins, labels=False)
 
     caf_data = (
-        df_complete
-        .groupby([id_name, congruency_name, 'rt_bin'])['accuracy']
+        df_complete.groupby([id_name, congruency_name, "rt_bin"])["accuracy"]
         .mean()
         .reset_index()
-        .rename(columns={'level_2': 'quantile'})
+        .rename(columns={"level_2": "quantile"})
         .reset_index()
     )
 
-    df_long = pd.melt(
+    cdf_data = pd.melt(
         delta_data,
-        id_vars=[id_name, 'quantile'],
-        value_vars=['congruent', 'incongruent'],
-        var_name='condition',
-        value_name='rt'
+        id_vars=[id_name, "quantile"],
+        value_vars=["congruent", "incongruent"],
+        var_name="condition",
+        value_name="rt",
     )
 
-    return delta_data, caf_data, df_long
+    return caf_data, cdf_data, delta_data
 
 
-def plot_stats(delta_data, caf_data, df_long, alpha=0.5, id_name='batch_nr', congruency_name='congruency_name', n_delta_bins = 10, fontsize=24, fontsize_axes=20):
-    
-    mean_data = df_long.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+def plot_stats(
+    caf_data: pd.DataFrame,
+    cdf_data: pd.DataFrame,
+    delta_data: pd.DataFrame,
+    alpha: float = 0.05,
+    id_name: str = "batch_nr",
+    congruency_name: str = "congruency_name",
+    n_delta_bins: int = 10,
+    fontsize: int = 24,
+    fontsize_axes: int = 20,
+    delta_ylim: Optional[Tuple[float, float]] = None,
+    delta_xlim: Optional[Tuple[float, float]] = None,
+) -> Tuple[Figure, Sequence[Axes]]:
+    """
+    Plot three standard distributional diagnostics for reaction-time (RT) data:
+    (1) conditional accuracy function (CAF), (2) cumulative distribution function (CDF),
+    and (3) a delta-function summary of condition differences across the RT distribution.
 
-    fig, axes = plt.subplots(1,3, figsize=(12,3))
+    The function creates a single figure with three subplots arranged horizontally:
 
-    sns.lineplot(df_long, x='rt', y='quantile', hue='condition', style=id_name, legend=False, ax=axes[1], alpha=alpha)
-    sns.lineplot(mean_data, x='rt', y='quantile', hue='condition', alpha=1, ax=axes[1])
-    axes[0].set_title('CAF', fontsize=fontsize)
-    axes[0].set_ylabel('CAF', fontsize=fontsize_axes)
+    1. **CAF**: Accuracy as a function of binned RT (``rt_bin``), stratified by
+       ``congruency_name``.
+    2. **CDF**: Empirical CDFs (quantile vs. RT) for each ``condition``. Individual
+       trajectories are shown per ``id_name`` (faint lines) and an overlaid mean CDF
+       is shown per ``condition``.
+    3. **Δ-function**: Condition difference (``delta``) as a function of mean RT quantile
+       (``mean_qu``). Individual trajectories are shown per ``id_name`` (very faint)
+       with an aggregated (mean-by-quantile) curve overlaid.
 
-    sns.lineplot(caf_data, x='rt_bin', y='accuracy', hue=congruency_name, ax=axes[0])
-    axes[1].set_title('CDF', fontsize=fontsize)
+    Parameters
+    ----------
+    delta_data : pandas.DataFrame
+        Long-format data required for the Δ-function panel. Must contain at least:
 
-    delta_data['mean_qu_bins'] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
-    delta_bins = delta_data.groupby('mean_qu_bins')['delta'].mean().reset_index()
-    delta_bins['bin_mid'] = delta_bins['mean_qu_bins'].apply(lambda x: x.mid)
+        - ``'quantile'``: Quantile index/label (used for aggregation).
+        - ``'mean_qu'``: Mean RT associated with each quantile (x-axis of Δ-function).
+        - ``'delta'``: Difference metric to plot (y-axis of Δ-function).
+        - A column named by ``id_name``: Identifier for individual trajectories.
 
+        Notes
+        -----
+        The function will add a temporary column ``'mean_qu_bins'`` via ``pd.cut``.
+        (It is overwritten if already present.)
+
+    caf_data : pandas.DataFrame
+        Data for the CAF panel. Must codf_longntain at least:
+
+        - ``'rt_bin'``: RT bin index/label (x-axis of CAF).
+        - ``'accuracy'``: Accuracy per bin (y-axis of CAF).
+        - A column named by ``congruency_name``: Grouping variable for CAF lines.
+
+    df_long : pandas.DataFrame
+        Long-format data for the CDF panel. Must contain at least:
+
+        - ``'rt'``: Reaction times in seconds (x-axis of CDF).
+        - ``'quantile'``: CDF quantiles (y-axis of CDF).
+        - ``'condition'``: Condition label for grouping/colouring.
+        - A column named by ``id_name``: Identifier for individual trajectories.
+
+    alpha : float, default=0.5
+        Opacity for individual CDF trajectories (panel 2). The mean CDF is plotted with
+        opacity 1.0.
+
+    id_name : str, default='batch_nr'
+        Column name used as an identifier for individual trajectories in the CDF and
+        Δ-function panels.
+
+    congruency_name : str, default='congruency_name'
+        Column name used to stratify the CAF panel.
+
+    n_delta_bins : int, default=10
+        Number of bins used when discretizing ``delta_data['mean_qu']`` into
+        ``'mean_qu_bins'``. (The function currently computes a binned summary, but then
+        replaces it with a mean-by-quantile aggregation for plotting.)
+
+    fontsize : int, default=24
+        Font size for subplot titles.
+
+    fontsize_axes : int, default=20
+        Font size for axis labels.
+
+    delta_ylim : tuple[float, float] | None, default=None
+        If provided (truthy), apply a fixed y-axis range to the Δ-function panel.
+        **Implementation note**: the current code sets the range to ``(0, 0.07)``
+        regardless of the value passed.
+
+    delta_xlim : tuple[float, float] | None, default=None
+        If provided (truthy), apply a fixed x-axis range to the Δ-function panel.
+        **Implementation note**: the current code sets the range to ``(0.35, 0.63)``
+        regardless of the value passed.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The created matplotlib figure.
+
+    axes : numpy.ndarray of matplotlib.axes.Axes
+        Array of axes in the order ``[CAF, CDF, Δ-function]``.
+
+    Notes
+    -----
+    - This function assumes that ``matplotlib.pyplot`` is imported as ``plt``,
+      ``seaborn`` as ``sns``, and ``pandas`` as ``pd`` in the calling scope.
+    - The Δ-function panel uses very low opacity (``alpha=0.05``) for individual
+      trajectories to emphasize the aggregated curve.
+
+    Examples
+    --------
+    >>> fig, axes = plot_stats(delta_data, caf_data, df_long, id_name="subject")
+    >>> fig.savefig("stats_panels.png", dpi=300, bbox_inches="tight")
+    """
+    mean_data = cdf_data.groupby(["quantile", "condition"])["rt"].mean().reset_index()
+
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3))
+
+    # CAF
+    sns.lineplot(caf_data, x="rt_bin", y="accuracy", hue=congruency_name, ax=axes[0])
+
+    axes[0].set_title("CAF", fontsize=fontsize)
+    axes[0].set_ylabel("CAF", fontsize=fontsize_axes)
+    axes[0].set_xlabel("Bins", fontsize=fontsize_axes)
+    axes[0].legend(title="", loc="lower right")
+
+    # single CDF
+    sns.lineplot(
+        cdf_data,
+        x="rt",
+        y="quantile",
+        hue="condition",
+        style=id_name,
+        legend=False,
+        ax=axes[1],
+        alpha=alpha,
+    )
+    # mean CDF
+    sns.lineplot(mean_data, x="rt", y="quantile", hue="condition", alpha=1, ax=axes[1])
+
+    axes[1].set_title("CDF", fontsize=fontsize)
+    axes[1].set_xlabel("RT[s]", fontsize=fontsize_axes)
+    axes[1].get_legend().remove()
+    axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
+
+    delta_data["mean_qu_bins"] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
+    delta_bins = delta_data.groupby("mean_qu_bins")["delta"].mean().reset_index()
+    delta_bins["bin_mid"] = delta_bins["mean_qu_bins"].apply(lambda x: x.mid)
 
     delta_bins = (
-            delta_data
-            .groupby('quantile')[['mean_qu', 'delta']]
-            .mean()
-            .reset_index()
-            .sort_values('mean_qu')
-        )
+        delta_data.groupby("quantile")[["mean_qu", "delta"]]
+        .mean()
+        .reset_index()
+        .sort_values("mean_qu")
+    )
 
-    sns.lineplot(delta_data,linewidth=0.5,linestyle='--',marker="o",  x='mean_qu', y='delta', hue=id_name, legend=False, ax=axes[2], alpha=0.05)
-    sns.lineplot(delta_bins,linewidth=0.5,linestyle='--',marker="o",  x='mean_qu', y='delta', legend=False, ax=axes[2], color='black')
-    axes[2].set_ylabel('$\Delta$', fontsize=fontsize_axes)
-    axes[2].set_xlabel('RT[s]', fontsize=fontsize_axes)
+    # single Deltas
+    sns.lineplot(
+        delta_data,
+        linewidth=0.5,
+        linestyle="--",
+        marker="o",
+        x="mean_qu",
+        y="delta",
+        hue=id_name,
+        legend=False,
+        ax=axes[2],
+        alpha=0.05,
+    )
 
-    axes[2].set_title('$\Delta$-Function', fontsize=fontsize)
-    
-    axes[2].set(ylim=(0, 0.07))
-    axes[2].set(xlim=(0.35, 0.63))
-    axes[0].legend(title='', loc='lower right')
-    axes[1].get_legend().remove()
+    # aggregated Deltas
+    sns.lineplot(
+        delta_bins,
+        linewidth=0.5,
+        linestyle="--",
+        marker="o",
+        x="mean_qu",
+        y="delta",
+        legend=False,
+        ax=axes[2],
+        color="black",
+    )
+
+    axes[2].set_ylabel("$\\Delta$", fontsize=fontsize_axes)
+    axes[2].set_xlabel("RT[s]", fontsize=fontsize_axes)
+    axes[2].set_title("$\\Delta$-Function", fontsize=fontsize)
+
+    if delta_ylim:
+        axes[2].set(ylim=(0, 0.07))
+
+    if delta_xlim:
+        axes[2].set(xlim=(0.35, 0.63))
 
     fig.tight_layout()
 
     return fig, axes
+
 
 
 def plot_fit(
@@ -970,7 +1230,6 @@ def plot_fit(
     
     axes[0].set(ylim=(0, 1))
     axes[0].set_title('CAF', fontsize=fontsize)
-                 palette=palette_emp)
     
     axes[1].set_title('CDF', fontsize=fontsize)
     axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
