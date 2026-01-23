@@ -796,7 +796,8 @@ def smd_samples(
 def format_sim_data(
     sim_data: Dict[str, np.ndarray],
     congruency_coding: int = 0,
-    only_convergents: bool = True
+    only_convergents: bool = True,
+    id_name: str = 'id'
 ) -> pd.DataFrame:
     """
     Format simulated behavioral data into a long-format pandas DataFrame.
@@ -819,6 +820,8 @@ def format_sim_data(
         If True, remove trials with reaction time equal to -1,
         which are assumed to represent non-convergent simulations.
         Default is True.
+    id_name : str, optional
+        Variable name for data set identifier. Default to 'id',
 
     Returns
     -------
@@ -827,7 +830,7 @@ def format_sim_data(
         - 'rt': Reaction time
         - 'accuracy': Accuracy value
         - 'conditions': Condition code
-        - 'batch_nr': Batch index
+        - 'id': Batch index
         - 'congruency_name': 'congruent' or 'incongruent'
         - 'accuracy_name': 'correct' or 'incorrect'
     """
@@ -837,7 +840,6 @@ def format_sim_data(
     behav_data: Dict[str, np.ndarray] = {k: sim_data[k] for k in behav_keys}
 
     df_list = []
-    batch_name = 'batch_nr'
     rt_var = 'rt'
 
     for i in range(batch_size):
@@ -851,7 +853,7 @@ def format_sim_data(
         )[:, :, 0]
 
         df_single = pd.DataFrame(stacked, columns=[rt_var, 'accuracy', 'conditions'])
-        df_single[batch_name] = i
+        df_single[id_name] = i
 
         df_single['congruency_name'] = [
             'congruent' if x == congruency_coding else 'incongruent'
@@ -874,7 +876,7 @@ def format_sim_data(
 
 def compute_stats(
     df_complete: pd.DataFrame,
-    id_name: str = "batch_nr",
+    id_name: str = "id",
     congruency_name: str = "congruency_name",
     n_rt_bins: int = 5,
     quantiles: Union[np.ndarray, Sequence[float]] = np.arange(0.1, 1.0, 0.1),
@@ -923,7 +925,7 @@ def compute_stats(
         The function adds/overwrites a column ``'rt_bin'`` in ``df_complete`` (in-place)
         computed via ``pandas.qcut``.
 
-    id_name : str, default='batch_nr'
+    id_name : str, default='id'
         Column name identifying independent units (e.g., participant, session, batch).
 
     congruency_name : str, default='congruency_name'
@@ -981,7 +983,7 @@ def compute_stats(
     --------
     >>> caf_data, cdf_data, delta_data = compute_stats(df_complete, id_name="subject_id")
     >>> # Pass outputs to plotting utilities
-    >>> fig, axes = plot_stats(delta_data, caf_data, cdf_data, id_name="subject_id")
+    >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data, id_name="subject_id")
     """
     delta_data = (
         df_complete[df_complete["accuracy"] == 1]
@@ -1023,7 +1025,7 @@ def plot_stats(
     cdf_data: pd.DataFrame,
     delta_data: pd.DataFrame,
     alpha: float = 0.05,
-    id_name: str = "batch_nr",
+    id_name: str = "id",
     congruency_name: str = "congruency_name",
     n_delta_bins: int = 10,
     fontsize: int = 24,
@@ -1081,7 +1083,7 @@ def plot_stats(
         Opacity for individual CDF trajectories (panel 2). The mean CDF is plotted with
         opacity 1.0.
 
-    id_name : str, default='batch_nr'
+    id_name : str, default='id'
         Column name used as an identifier for individual trajectories in the CDF and
         Δ-function panels.
 
@@ -1126,8 +1128,7 @@ def plot_stats(
 
     Examples
     --------
-    >>> fig, axes = plot_stats(delta_data, caf_data, df_long, id_name="subject")
-    >>> fig.savefig("stats_panels.png", dpi=300, bbox_inches="tight")
+    >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data, id_name="subject")
     """
     mean_data = cdf_data.groupby(["quantile", "condition"])["rt"].mean().reset_index()
 
@@ -1161,7 +1162,7 @@ def plot_stats(
     axes[1].get_legend().remove()
 
     delta_data["mean_qu_bins"] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
-    delta_bins = delta_data.groupby("mean_qu_bins")["delta"].mean().reset_index()
+    delta_bins = delta_data.groupby("mean_qu_bins", observed=False)["delta"].mean().reset_index()
     delta_bins["bin_mid"] = delta_bins["mean_qu_bins"].apply(lambda x: x.mid)
 
     delta_bins = (
@@ -1416,7 +1417,7 @@ def plot_fit(
 
     delta_bins = (
             delta_data
-            .groupby('quantile')[['mean_qu', 'delta']]
+            .groupby('quantile', observed=False)[['mean_qu', 'delta']]
             .mean()
             .reset_index()
             .sort_values('mean_qu')
@@ -1428,7 +1429,7 @@ def plot_fit(
 
     delta_bins_emp = (
             delta_data_emp
-            .groupby('quantile')[['mean_qu', 'delta']]
+            .groupby('quantile', observed=False)[['mean_qu', 'delta']]
                 .agg(
                     mean_qu=('mean_qu', 'mean'),
                     delta=('delta', 'mean'),
