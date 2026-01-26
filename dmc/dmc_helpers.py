@@ -13,63 +13,6 @@ from matplotlib.axes import Axes
 import numpy.typing as npt
 
 
-
-def dict_to_df(post_samples: Dict[str, np.ndarray]) -> pd.DataFrame:
-    """
-    Convert a dictionary of posterior samples into a long-format pandas DataFrame.
-
-    This function assumes that each entry in `post_samples` is a NumPy array
-    indexed by subject (or batch) along the first dimension (output of approximator.sample()). For each subject,
-    all remaining dimensions are flattened into a single vector of samples.
-    The result is a concatenated DataFrame with one row per sample and an
-    explicit subject identifier column.
-
-    Parameters
-    ----------
-    post_samples : Dict[str, np.ndarray]
-        Dictionary mapping parameter names to NumPy arrays of posterior samples.
-        All arrays must have the same first dimension size (number of subjects).
-        Expected shape per entry: (n_ids, ..., ...), where remaining dimensions
-        represent samples and are flattened.
-
-    Returns
-    -------
-    pd.DataFrame
-        Long-format DataFrame containing posterior samples with:
-        - one column per parameter in `post_samples`
-        - an 'id' column identifying the subject or unit
-        - one row per flattened posterior sample per subject
-
-    Raises
-    ------
-    ValueError
-        If input arrays do not share the same size along the first dimension.
-    """
-    if not post_samples:
-        return pd.DataFrame()
-
-    # Validate consistent number of IDs across parameters
-    n_ids = {v.shape[0] for v in post_samples.values()}
-    if len(n_ids) != 1:
-        raise ValueError("All arrays in post_samples must share the same first dimension size.")
-
-    n_ids = n_ids.pop()
-    samples_list = []
-
-    for idx in range(n_ids):
-        samples_dict = {
-            param: values[idx].ravel()
-            for param, values in post_samples.items()
-        }
-
-        df_single = pd.DataFrame(samples_dict)
-        df_single["id"] = idx
-        samples_list.append(df_single)
-
-    df_complete = pd.concat(samples_list, ignore_index=True)
-
-    return df_complete
-
 def hdi(
     samples: Sequence[float] | npt.NDArray[np.floating],
     hdi_prob: float = 0.95
@@ -108,55 +51,6 @@ def hdi(
     hdi_max = float(sorted_samples[min_idx + interval_idx_inc])
 
     return hdi_min, hdi_max
-
-
-def load_model_specs(model_specs, network_name):
-
-    simulator = DMC(**model_specs['simulation_settings'])
-
-    
-    if simulator.sdr_fixed == 0:
-
-        adapter = (
-            bf.adapters.Adapter()
-            .drop('sd_r')
-            .convert_dtype("float64", "float32")
-            .sqrt("num_obs")
-            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
-            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
-            .standardize(include="inference_variables")
-            .rename("num_obs", "inference_conditions")
-        )
-    else:
-        adapter = (
-            bf.adapters.Adapter()
-            .convert_dtype("float64", "float32")
-            .sqrt("num_obs")
-            .concatenate(model_specs['simulation_settings']['param_names'], into="inference_variables")
-            .concatenate(["rt", "accuracy", "conditions"], into="summary_variables")
-            .standardize(include="inference_variables")
-            .rename("num_obs", "inference_conditions")
-        )
-
-    # Create inference net 
-    inference_net = bf.networks.CouplingFlow(**model_specs['inference_network_settings'])
-
-    # inference_net = bf.networks.FlowMatching(subnet_kwargs=dict(dropout=0.1))
-
-    summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
-
-    workflow = bf.BasicWorkflow(
-        simulator=simulator,
-        adapter=adapter,
-        initial_learning_rate=model_specs['learning_rate'],
-        inference_network=inference_net,
-        summary_network=summary_net,
-        checkpoint_filepath='../data/training_checkpoints',
-        checkpoint_name=network_name,
-        inference_variables=model_specs['simulation_settings']['param_names']
-    )
-
-    return simulator, adapter, inference_net, summary_net, workflow
 
 
 def format_empirical_data(
@@ -213,7 +107,12 @@ def format_empirical_data(
     return inference_data
 
 
-def fit_empirical_data(data, approximator, id_label="participant", var_names=['rt', 'accuracy', "congruency_num"]):
+def fit_empirical_data(
+    data: pd.DataFrame,
+    approximator: Any,
+    id_label: str = "participant",
+    var_names: Sequence[str] = ("rt", "accuracy", "congruency_num"),
+) -> pd.DataFrame:
     """
     Samples posteriors for empirical data for each unique subject or group.
 
@@ -466,84 +365,6 @@ def resim_data(
     return resim_complete
 
 
-def delta_functions(data, quantiles = np.arange(0,1, 0.1), 
-                  grouping_labels=["participant", "condition_label"],
-                  rt_var="rt",
-                  congruency_name="condition_label"):
-    """
-    Computes delta plots from response time (RT) data across quantiles.
-
-    This function calculates RT quantiles separately for different experimental conditions 
-    (e.g., "congruent" vs "incongruent") within groups (e.g., participants), and derives 
-    delta functions by computing the difference between conditions across quantiles. This 
-    is commonly used in cognitive modeling and conflict processing research.
-
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        A DataFrame containing trial-level data, including RTs, condition labels, 
-        and grouping variables (e.g., participants).
-
-    quantiles : array-like, optional
-        A sequence of quantile values (between 0 and 1) at which to compute RTs. 
-        Defaults to `np.arange(0, 1, 0.1)` (i.e., deciles excluding the 1.0 quantile).
-
-    grouping_labels : list of str, optional
-        Columns used to group the data before computing quantiles. These typically include 
-        participant ID and condition label. Default is ["participant", "condition_label"].
-
-    rt_var : str, optional
-        Name of the column in `data` that contains response times. Default is "rt".
-
-    congruency_name : str, optional
-        Name of the column that contains condition labels such as "congruent" 
-        and "incongruent". Default is "condition_label".
-
-    Returns:
-    --------
-    pandas.DataFrame
-        A DataFrame indexed by quantile, with columns:
-        - 'congruent': RT quantile values for the congruent condition
-        - 'incongruent': RT quantile values for the incongruent condition
-        - 'delta': difference between incongruent and congruent RTs at each quantile
-        - 'mean_qu': mean of incongruent and congruent RTs at each quantile
-
-    Notes:
-    ------
-    - This function assumes that `congruency_name` contains exactly two levels: 
-      "congruent" and "incongruent".
-    - It reshapes the data to wide format to facilitate delta function calculation.
-    - Output can be used to plot delta plots for visualization or modeling of conflict effects.
-
-    """
-    
-    # compute quantiles 
-    quantile_data = data.groupby(grouping_labels)[rt_var].quantile(quantiles).reset_index()
-    
-    # Rename any 'level_*' column to 'quantiles' (find first match)
-    quantile_data.rename(columns={col: 'quantiles' for col in quantile_data.columns if 'level_' in col}, inplace=True)
-
-    quantile_data_wide = quantile_data.pivot(index="quantiles", columns=congruency_name, values=rt_var)
-
-    quantile_data_wide["delta"] = quantile_data_wide["incongruent"] - quantile_data_wide["congruent"]
-
-    quantile_data_wide["mean_qu"] = (quantile_data_wide["incongruent"] + quantile_data_wide["congruent"])/2
-
-    return quantile_data_wide
-
-
-
-def subset_data(data, idx, keys = ['rt', 'accuracy', 'conditions']):
-
-    data = copy.deepcopy(data)
-
-    for k in keys:
-        # print(f'{data[k].shape}')
-        data[k] = data[k][:, idx, :]
-        print(f'{k}: {data[k].shape}')
-
-    return data
-
 def param_labels(param_names):
     """
     Formats a list of parameter names for LaTeX-style labeling (e.g., for plotting).
@@ -592,8 +413,6 @@ def param_labels(param_names):
         
     return param_labels
 
-
-
 def smd_samples(
     samples1: pd.DataFrame,
     samples2: pd.DataFrame,
@@ -605,7 +424,6 @@ def smd_samples(
     hdi_alpha: float = 1.0,
     x_prop: float = 0.05,
     y_prop: float = 0.85,
-    text_rotation: float = 0.0,
     zero_line: bool = True,
     x_lower: float = -1.2,
     x_upper: float = 1.2,
@@ -855,11 +673,11 @@ def format_sim_data(
         df_single = pd.DataFrame(stacked, columns=[rt_var, 'accuracy', 'conditions'])
         df_single[id_name] = i
 
-        df_single['congruency_name'] = [
+        df_single['congruency'] = [
             'congruent' if x == congruency_coding else 'incongruent'
             for x in df_single['conditions']
         ]
-        df_single['accuracy_name'] = [
+        df_single['accuracy'] = [
             'correct' if x == 1.0 else 'incorrect'
             for x in df_single['accuracy']
         ]
@@ -877,7 +695,7 @@ def format_sim_data(
 def compute_stats(
     df_complete: pd.DataFrame,
     id_name: str = "id",
-    congruency_name: str = "congruency_name",
+    congruency_name: str = "congruency",
     n_rt_bins: int = 5,
     quantiles: Union[np.ndarray, Sequence[float]] = np.arange(0.1, 1.0, 0.1),
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -898,7 +716,7 @@ def compute_stats(
 
     2. **CAF data (`caf_data`)**:
        Mean accuracy per RT bin (quantile bins over ``rt``), stratified by
-       ``id_name`` × ``congruency_name`` × ``rt_bin``.
+       ``id_name`` × ``congruency`` × ``rt_bin``.
 
     3. **CDF data (`cdf_data`)**:
        Long-format representation of the wide quantile RTs from `delta_data`, with
@@ -928,7 +746,7 @@ def compute_stats(
     id_name : str, default='id'
         Column name identifying independent units (e.g., participant, session, batch).
 
-    congruency_name : str, default='congruency_name'
+    congruency_name : str, default='congruency'
         Column name indicating congruency condition. For downstream computations,
         the values are expected to include levels that pivot to columns named
         ``'congruent'`` and ``'incongruent'``.
@@ -1026,7 +844,7 @@ def plot_stats(
     delta_data: pd.DataFrame,
     alpha: float = 0.05,
     id_name: str = "id",
-    congruency_name: str = "congruency_name",
+    congruency_name: str = "congruency",
     n_delta_bins: int = 10,
     fontsize: int = 24,
     fontsize_axes: int = 15,
@@ -1087,7 +905,7 @@ def plot_stats(
         Column name used as an identifier for individual trajectories in the CDF and
         Δ-function panels.
 
-    congruency_name : str, default='congruency_name'
+    congruency_name : str, default='congruency'
         Column name used to stratify the CAF panel.
 
     n_delta_bins : int, default=10
@@ -1221,8 +1039,8 @@ def plot_fit(
     caf_data_emp: pd.DataFrame,
     cdf_data: pd.DataFrame,
     cdf_data_emp: pd.DataFrame,
-    congruency_name: str = "congruency_name",
-    congruency_name_emp: str = "congruency_num",
+    congruency_name: str = "congruency",
+    congruency_name_emp: str = "congruency",
     n_delta_bins: int = 10,
     set_ylim_delta: bool = False,
     ylim_delta: Tuple[float, float] = (0.0, 0.07),
@@ -1273,10 +1091,10 @@ def plot_fit(
         ['quantile', 'condition', 'rt'].
     congruency_name : str, optional
         Column name in `caf_data` indicating congruency condition
-        for the model (default: 'congruency_name').
+        for the model (default: 'congruency').
     congruency_name_emp : str, optional
         Column name in `caf_data_emp` indicating congruency condition
-        for the empirical data (default: 'congruency_num').
+        for the empirical data (default: 'congruency').
     n_delta_bins : int, optional
         Number of bins used when discretizing `mean_qu` with `pd.cut`
         (default: 10). Currently used when computing intermediate
