@@ -19,10 +19,11 @@ if "KERAS_BACKEND" not in os.environ:
 import numpy as np
 import pickle
 
-import keras
 from datetime import datetime
 
 import bayesflow as bf
+
+import keras
 
 parent_dir = os.getcwd()
 

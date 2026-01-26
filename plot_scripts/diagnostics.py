@@ -69,22 +69,31 @@ val_data = simulator.sample(500)
 n_obs = val_data['rt'].shape[1]
 print(f' {n_obs}')
 
-# Plot Recovery, SBC and PC
-#figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), 
-#                                         calibration_ecdf_kwargs={'difference': True,
-#                                                                  'title_fontsize': 15})
-
 post_samples = approximator.sample(conditions=val_data, num_samples=1000)
 
 title_fontsize = 40
 label_fontsize = 25
 legend_fontsize = 15
 
-fic_sbc = bf.diagnostics.calibration_ecdf(targets=val_data, estimates=post_samples, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), difference=True, title_fontsize=title_fontsize, label_fontsize=label_fontsize, legend_fontsize=legend_fontsize)
+fic_sbc = bf.diagnostics.calibration_ecdf(targets=val_data, 
+                                          estimates=post_samples, 
+                                          variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), 
+                                          difference=True, 
+                                          title_fontsize=title_fontsize, 
+                                          label_fontsize=label_fontsize, 
+                                          legend_fontsize=legend_fontsize)
 
-fig_rec = bf.diagnostics.recovery(targets=val_data, estimates=post_samples, metric_fontsize=25, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), title_fontsize=title_fontsize, label_fontsize=label_fontsize)
+fig_rec = bf.diagnostics.recovery(targets=val_data, 
+                                  estimates=post_samples, 
+                                  metric_fontsize=25, 
+                                  variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), 
+                                  title_fontsize=title_fontsize, label_fontsize=label_fontsize)
 
-fig_pc = bf.diagnostics.z_score_contraction(targets=val_data, estimates=post_samples, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), title_fontsize=title_fontsize, label_fontsize=label_fontsize)
+fig_pc = bf.diagnostics.z_score_contraction(targets=val_data, 
+                                            estimates=post_samples, 
+                                            variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), 
+                                            title_fontsize=title_fontsize, 
+                                            label_fontsize=label_fontsize)
 
 # create plot folder if necessary
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
@@ -96,6 +105,3 @@ fig_rec.savefig(plots_dir + '/' + network_name + '_recovery_' + str(n_obs) + 'tr
 
 fig_pc.savefig(plots_dir + '/' + network_name + '_z_score_contraction_' + str(n_obs) + 'trials.png')
 
-# save all figures
-#for k, i in figs.items():
-#    figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_' + str(n_obs) + 'trials.png')

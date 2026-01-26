@@ -59,6 +59,7 @@ for network_name in network_names:
     parts = df_samples['participant'].unique()
 
     for spacing, spacing_num in zip(['narrow', 'wide'], [1,0]):
+        
         for part in parts:
             
             num_obs = empirical_data[(empirical_data['spacing_num'] == spacing_num) & (empirical_data['participant'] == part)].shape[0]
@@ -69,7 +70,7 @@ for network_name in network_names:
             part_data_samples = part_data_samples[part_data_samples["spacing"] == spacing]
 
             # resimulate data
-            data_resimulated = dmc_helpers.resim_data(part_data_samples, num_obs=num_obs, simulator=simulator, part=part, param_names=model_specs['simulation_settings']['param_names'] )
+            data_resimulated = dmc_helpers.resim_data(part_data_samples, num_obs=num_obs, simulator=simulator, part=part, param_names=model_specs['simulation_settings']['param_names'], id_name='participant')
             
             # exclude non-convergents
             data_resimulated = data_resimulated[data_resimulated["rt"] != -1]
