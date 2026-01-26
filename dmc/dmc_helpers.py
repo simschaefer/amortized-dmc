@@ -918,13 +918,9 @@ def plot_stats(
 
     delta_ylim : tuple[float, float] | None, default=None
         If provided (truthy), apply a fixed y-axis range to the Δ-function panel.
-        **Implementation note**: the current code sets the range to ``(0, 0.07)``
-        regardless of the value passed.
 
     delta_xlim : tuple[float, float] | None, default=None
         If provided (truthy), apply a fixed x-axis range to the Δ-function panel.
-        **Implementation note**: the current code sets the range to ``(0.35, 0.63)``
-        regardless of the value passed.
 
     Returns
     -------
