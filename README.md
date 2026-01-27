@@ -153,7 +153,7 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
 - **`plot_stats(caf_data, cdf_data, delta_data, ...)`**  
   Produces a 1×3 diagnostic figure (CAF, CDF, Δ-function), plotting individual trajectories where applicable plus aggregated curves based on the output of `compute_stats`.
 
-- **`plot_fit(delta_data, delta_data_emp, caf_data, caf_data_emp, cdf_data, cdf_data_emp, ...)`**  
+- **`plot_fit(caf_data, cdf_data, delta_data, caf_data_emp, cdf_data_emp, delta_data_emp, ...)`**  
   Overlays model-based and empirical CAF/CDF/Δ-function summaries in a consistent 1×3 layout, with configurable styling, limits, legends, and optional reuse of existing axes based on the output of `compute_stats`.
 
 - **`weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sbc=1)`**  
