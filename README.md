@@ -1,6 +1,6 @@
 # Amortized Bayesian Workflow of the Diffusion Model for Conflict Tasks
 
-This repository contains the work of Schaefer et al. (2025). 
+This repository contains the work of [Schaefer et al. (2026, in press) ](https://osf.io/preprints/psyarxiv/dypcw_v2)
 
 We propose a **generalized Amortized Bayesian Workflow** to yield optimal performance in the parameter estimation of cognitive models as well as pretrained networks for Amortized Bayesian Inference of the **Diffusion Model for Conflict Tasks** (Ulrich et al., 2015).
 
@@ -107,7 +107,7 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
   * `posterior_reliability.py`: Computes Split-Half correlation between individual parameter estimates for seven data sets.
   * `posterior_predictive_check_data.py`: Posterior Predictive Checks of individual RT and Accuracy Data. Stores resimulations as pandas DataFrame.
 
-
+cdf_data, cdf_data_emp,
 * **`plot_scripts/`**
 
   All scripts and notebooks that were used to create the plots in the paper:
@@ -153,7 +153,7 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
 - **`plot_stats(caf_data, cdf_data, delta_data, ...)`**  
   Produces a 1×3 diagnostic figure (CAF, CDF, Δ-function), plotting individual trajectories where applicable plus aggregated curves based on the output of `compute_stats`.
 
-- **`plot_fit(delta_data, delta_data_emp, caf_data, caf_data_emp, cdf_data, cdf_data_emp, ...)`**  
+- **`plot_fit(caf_data, cdf_data, delta_data, caf_data_emp, cdf_data_emp, delta_data_emp, ...)`**  
   Overlays model-based and empirical CAF/CDF/Δ-function summaries in a consistent 1×3 layout, with configurable styling, limits, legends, and optional reuse of existing axes based on the output of `compute_stats`.
 
 - **`weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sbc=1)`**  

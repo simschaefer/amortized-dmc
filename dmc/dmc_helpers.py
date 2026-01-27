@@ -1026,12 +1026,12 @@ def plot_stats(
 
 
 def plot_fit(
-    delta_data: pd.DataFrame,
-    delta_data_emp: pd.DataFrame,
     caf_data: pd.DataFrame,
-    caf_data_emp: pd.DataFrame,
     cdf_data: pd.DataFrame,
+    delta_data: pd.DataFrame,
+    caf_data_emp: pd.DataFrame,
     cdf_data_emp: pd.DataFrame,
+    delta_data_emp: pd.DataFrame,
     congruency_name: str = "congruency",
     congruency_name_emp: str = "congruency",
     n_delta_bins: int = 10,
