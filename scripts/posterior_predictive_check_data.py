@@ -70,7 +70,7 @@ for network_name in network_names:
             part_data_samples = part_data_samples[part_data_samples["spacing"] == spacing]
 
             # resimulate data
-            data_resimulated = dmc_helpers.resim_data(part_data_samples, num_obs=num_obs, simulator=simulator, part=part, param_names=model_specs['simulation_settings']['param_names'], id_name='participant')
+            data_resimulated = dmc_helpers.resim_data_id(part_data_samples, num_obs=num_obs, simulator=simulator, id=part, param_names=model_specs['simulation_settings']['param_names'], id_name='participant')
             
             # exclude non-convergents
             data_resimulated = data_resimulated[data_resimulated["rt"] != -1]

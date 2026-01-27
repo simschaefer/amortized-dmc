@@ -55,7 +55,7 @@ def hdi(
 
 def format_empirical_data(
     data: pd.DataFrame,
-    var_names: Sequence[str] = ("rt", "accuracy", "congruency_num"),
+    var_names: Sequence[str] = ['rt', 'accuracy', 'congruency_num'],
 ) -> Dict[str, np.ndarray]:
     """
     Formats empirical behavioral data into a structured dictionary for model inference.
@@ -111,7 +111,7 @@ def fit_empirical_data(
     data: pd.DataFrame,
     approximator: Any,
     id_name: str = "id",
-    var_names: Sequence[str] = ("rt", "accuracy", "congruency_num"),
+    var_names: Sequence[str] = ['rt', 'accuracy', 'congruency_num'],
 ) -> pd.DataFrame:
     """
     Samples posteriors for empirical data for each unique subject or group.
@@ -258,13 +258,76 @@ def weighted_metric_sum(
     return weighted_sum
 
 
-def resim_data(
-    post_sample_data: pd.DataFrame,
+def post_samples_to_df(post_samples):
+    """
+    Convert batched posterior samples into a long-format pandas DataFrame.
+
+    This function takes posterior samples stored as a dictionary of NumPy arrays
+    (e.g., as returned by a BayesFlow approximator) and converts them into a single
+    concatenated pandas DataFrame. Each batch element (e.g., participant or dataset)
+    is assigned a unique integer identifier via an `id` column.
+
+    Parameters
+    ----------
+    post_samples : dict
+        Dictionary of posterior samples. Each key corresponds to a model parameter
+        name, and each value must be a NumPy array with shape
+        `(n_ids, n_samples, n_dims)`, where:
+        - `n_ids` is the number of independent units (e.g., participants),
+        - `n_samples` is the number of posterior samples per unit,
+        - `n_dims` is the parameter dimensionality (typically 1).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Long-format DataFrame containing posterior samples with one row per sample.
+        The DataFrame includes:
+        - One column per parameter in `post_samples`
+        - An integer column `id` identifying the originating unit
+
+        The total number of rows is `n_ids × n_samples`.
+
+    Notes
+    -----
+    - All parameter arrays in `post_samples` are assumed to have identical shapes
+      in their first two dimensions (`n_ids`, `n_samples`).
+    - Parameter arrays are flattened along the last dimension before insertion
+      into the DataFrame.
+    - The `id` column is zero-indexed and assigned in the order of the first
+      dimension of the arrays.
+
+    Examples
+    --------
+    >>> df = post_samples_to_df(post_samples)
+    >>> df.head()
+           A   tau   mu_c   mu_r     b  id
+    0  0.45  0.32   1.12   0.98  0.21   0
+    """
+
+    ids = post_samples['A'].shape[0]
+
+    lst_samples = []
+
+    for id in range(0, ids):
+
+        samples_2d = {k: v[id, :, :].flatten() for k, v in post_samples.items()}
+        
+        df_single = pd.DataFrame(samples_2d)
+
+        df_single['id'] = id
+
+        lst_samples.append(df_single)
+
+    return pd.concat(lst_samples)
+
+def resim_data_id(
+    post_sample_data: Union[pd.DataFrame, Mapping[str, np.ndarray]],
     num_obs: int,
     simulator: Any,
-    part: Union[str, int],
+    id: Union[str, int],
+    id_name: Union[str, int] = 'id',
     num_resims: int = 50,
-    param_names: Sequence[str] = ("A", "tau", "mu_c", "mu_r", "b"),
+    param_names: Sequence[str] = ("A", "tau", "mu_c", "mu_r", "b", "sd_r"),
 ) -> pd.DataFrame:
     """
     Resimulates data based on posterior parameter samples for a given participant.
@@ -288,8 +351,8 @@ def resim_data(
         and returns simulated data in a tabular format (e.g., list of dicts or DataFrame-compatible structure). 
         The object may also have an attribute `sdr_fixed` which controls whether `sd_r` is passed explicitly.
 
-    part : str or int
-        A label identifying the participant for whom the resimulations are being generated.
+    id : str or int
+        Specific id for whom the resimulations are being generated.
 
     num_resims : int, optional
         The number of independent resimulation runs to perform. Default is 50.
@@ -316,13 +379,15 @@ def resim_data(
     """
 
     # convert to dict (allow differing number of samples per parameter)
-    resim_samples = dict(post_sample_data)
+
+    if ~isinstance(post_sample_data, dict):
+        resim_samples = dict(post_sample_data)
 
     # count excluded samples
     excluded_samples = dict()
 
     excluded_samples['num_samples'] = post_sample_data.shape[0]
-    excluded_samples["id"] = part
+    excluded_samples[id_name] = id
 
     # exclude negative samples
     for k, dat in resim_samples.items():
@@ -357,7 +422,7 @@ def resim_data(
         resim_df = pd.DataFrame(resim)
         
         resim_df["num_resim"] = i
-        resim_df["id"] = part
+        resim_df[id_name] = id
         
         list_resim_dfs.append(pd.DataFrame(resim_df))
 
@@ -365,6 +430,102 @@ def resim_data(
     
     return resim_complete
 
+def resim_data(empirical_data, 
+               post_samples,
+               simulator,
+               num_resims: int = 50,
+               param_names: Sequence[str] = ("A", "tau", "mu_c", "mu_r", "b", "sd_r"),
+               id_name = 'id',
+               congruency_name = 'congruency'):
+    
+    """
+    Perform posterior-predictive resimulations for each unit in an empirical dataset.
+
+    This function loops over all unique identifiers in `empirical_data[id_name]`,
+    determines the number of empirical observations per identifier, subsets the
+    corresponding posterior parameter samples from `post_samples`, and calls
+    `resim_data_id(...)` to generate resimulated trial-level data via `simulator`.
+
+    After simulation, the function:
+    1) removes non-convergent trials (defined as `rt == -1`),
+    2) recodes the numeric condition codes in the `conditions` column into a
+       human-readable congruency label column (`congruency_name`) using the mapping
+       `{0.0: "congruent", 1.0: "incongruent"}`.
+
+    Parameters
+    ----------
+    empirical_data : pandas.DataFrame
+        Empirical trial-level dataset containing at least the identifier column
+        `id_name`. The number of rows per identifier determines `num_obs` passed
+        to the simulator.
+
+    post_samples : pandas.DataFrame
+        Long-format posterior samples containing at least the identifier column
+        `id_name`. For each identifier, this function selects the subset
+        `post_samples[post_samples[id_name] == part]` and passes it to
+        `resim_data_id(...)`.
+
+    simulator : object
+        A simulator instance compatible with `resim_data_id(...)` (typically
+        exposing an `experiment(...)` method).
+
+    id_name : str, optional
+        Name of the identifier column used to match empirical units to posterior
+        samples. Default is `'id'`.
+
+    congruency_name : str, optional
+        Name of the output column storing congruency labels derived from the
+        numeric `conditions` column. Default is `'congruency'`.
+
+    Returns
+    -------
+    list[pandas.DataFrame]
+        A list of per-identifier resimulated datasets. Each element is a
+        trial-level DataFrame produced by `resim_data_id(...)`, filtered to remove
+        `rt == -1` rows and augmented with a congruency label column
+        (`congruency_name`).
+
+    External Dependencies / Assumptions
+    -----------------------------------
+    - `resim_data_id(...)` must be defined in the surrounding scope and accept
+      arguments compatible with:
+        `resim_data_id(part_data_samples, num_obs, simulator, id, param_names=param_names)`
+    - `param_names` must exist in the surrounding scope (global or closure).
+    - The resimulated output is expected to contain columns:
+        - `'rt'` (reaction time; used to filter non-convergents)
+        - `'conditions'` (numeric condition codes; used for congruency mapping)
+
+    Notes
+    -----
+    - If `post_samples` is missing entries for an identifier in `empirical_data`,
+      the corresponding resimulation may be empty or raise an error inside
+      `resim_data_id(...)` depending on its implementation.
+    - The congruency mapping assumes exactly two condition codes: 0.0 and 1.0.
+      If your simulator uses different coding, adjust the mapping accordingly.
+    """
+
+    ids = empirical_data[id_name].unique()
+
+    lst_data = []
+
+    for id in ids:
+        
+        num_obs = empirical_data[(empirical_data[id_name] == id)].shape[0]
+
+        part_data_samples = post_samples[post_samples[id_name]==id]
+
+        # resimulate data
+        data_resimulated = resim_data_id(part_data_samples, num_obs=num_obs, num_resims=num_resims, simulator=simulator, id=id, param_names=param_names)
+        
+        # exclude non-convergents
+        data_resimulated = data_resimulated[data_resimulated["rt"] != -1]
+
+        # recode congruency
+        data_resimulated[congruency_name] = data_resimulated["conditions"].map({0.0: "congruent", 1.0: "incongruent"})
+
+        lst_data.append(data_resimulated)
+
+    return pd.concat(lst_data)
 
 def param_labels(param_names):
     """
@@ -647,7 +808,7 @@ def format_sim_data(
         - 'conditions': Condition code
         - 'id': Batch index
         - 'congruency': 'congruent' or 'incongruent'
-        - 'accuracy': 'correct' or 'incorrect'
+        - 'accuracy_name': 'correct' or 'incorrect'
     """
     batch_size: int = sim_data['rt'].shape[0]
 
