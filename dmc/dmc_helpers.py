@@ -55,7 +55,10 @@ def hdi(
 
 def format_empirical_data(
     data: pd.DataFrame,
-    var_names: Sequence[str] = ['rt', 'accuracy', 'congruency_num'],
+    rt: str = None,
+    accuracy: str = None,
+    congruency: str = None,
+    var_names: Optional[Sequence[str]] = None,
 ) -> Dict[str, np.ndarray]:
     """
     Formats empirical behavioral data into a structured dictionary for model inference.
@@ -69,6 +72,19 @@ def format_empirical_data(
     data : pandas.DataFrame
         A DataFrame containing empirical data, typically with columns representing 
         response time ('rt'), accuracy, and experimental conditions.
+
+    rt : str
+        Column name for reaction time in empirical data set.
+    accuracy : str
+        Column name for accuracy in empirical data set.
+    congruency : str
+        Column name for congruency (coded as or 0 (congruent) /1 (incongruent)).
+    var_names : Sequence[str]
+        Can be used to pass variable names in a single list. Make sure, the names are in the correct order: 
+        1. RT-variable name
+        2. Accuracy variable name
+        3. Congruency conditions variable names
+        Overwrites `rt`, `accuracy`, and `congruency` if specified.
     
     var_names : list of str, optional
         A list of column names to extract from the DataFrame. Defaults to 
@@ -89,6 +105,12 @@ def format_empirical_data(
     inference or training procedures where dimensions typically follow the pattern 
     (batch, number of observations, variable).
     """
+
+    if any(x is None for x in (rt, accuracy, congruency)) & (var_names is None):
+        raise TypeError('Please specify variable names for RT, Accuracy and Congruency conditions using either `rt`, `accuracy`, `congruency` or `var_names`')
+
+    if var_names is None:
+        var_names = [rt, accuracy, congruency]
     
     # extract relevant variables
     data_np = data[var_names].values
@@ -97,6 +119,30 @@ def format_empirical_data(
     inference_data = dict(rt=data_np[:,0],
                           accuracy=data_np[:,1],
                           conditions=data_np[:,2])
+
+    allowed = {0, 1}
+    vals = set(np.unique(inference_data['conditions']))
+
+    if not vals.issubset(allowed):
+        warnings.warn(
+            f"Congruency variable is coded as {vals}. "
+            "Change to 0 (congruent) / 1 (incongruent) before submitting to this function."
+        )
+
+    else:
+        # check congruency coding
+        mean_con = inference_data['rt'][inference_data['conditions'] == 0].mean()
+
+        mean_inc = inference_data['rt'][inference_data['conditions'] == 1].mean()
+
+        diff = mean_inc - mean_con
+
+        if diff < 0:
+            warnings.warn(
+                f"Difference between incongruent - congruent conditions in RT is negative: {diff}. Please check the coding of congruency conditions."
+            )
+
+    
 
     # add dimensions so it fits training data
     inference_data = {k: v[np.newaxis,..., np.newaxis] for k, v in inference_data.items()}
@@ -111,7 +157,10 @@ def fit_empirical_data(
     data: pd.DataFrame,
     approximator: Any,
     id_name: str = "id",
-    var_names: Sequence[str] = ['rt', 'accuracy', 'congruency_num'],
+    rt: str = None,
+    accuracy: str = None,
+    congruency: str = None,
+    var_names: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     Samples posteriors for empirical data for each unique subject or group.
@@ -136,10 +185,18 @@ def fit_empirical_data(
         The column name used to identify unique units in the data (e.g., "participant").
         Defaults to "id".
 
-    var_names : str, optional
-        Contains a list of variable names that are used as inference variables by the adapter. 
-        It should contain the variable name of the reaction times (default = 'rt'), the name of the accuracy variable
-        (default = 'accuracy') as well as the name of the congruency variable (default = 'congruency_num').
+    rt : str
+            Column name for reaction time in empirical data set.
+    accuracy : str
+        Column name for accuracy in empirical data set.
+    congruency : str
+        Column name for congruency (coded as or 0 (congruent) /1 (incongruent)).
+    var_names : Sequence[str]
+        Can be used to pass variable names in a single list. Make sure, the names are in the correct order: 
+        1. RT-variable name
+        2. Accuracy variable name
+        3. Congruency conditions variable names
+        Overwrites `rt`, `accuracy`, and `congruency` if specified.
 
     Returns:
     --------
@@ -158,6 +215,10 @@ def fit_empirical_data(
     - The `approximator` must support a `sample` method with arguments:
       `conditions` (dict) and `num_samples` (int).
     """
+
+    if var_names is None:
+        var_names = [rt, accuracy, congruency]
+    
 
     # extract unique id labels
     ids=data[id_name].unique()
