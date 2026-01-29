@@ -85,10 +85,6 @@ def format_empirical_data(
         2. Accuracy variable name
         3. Congruency conditions variable names
         Overwrites `rt`, `accuracy`, and `congruency` if specified.
-    
-    var_names : list of str, optional
-        A list of column names to extract from the DataFrame. Defaults to 
-        ['rt', 'accuracy', 'congruency_num'].
 
     Returns:
     --------
@@ -215,6 +211,10 @@ def fit_empirical_data(
     - The `approximator` must support a `sample` method with arguments:
       `conditions` (dict) and `num_samples` (int).
     """
+    
+    if any(x is None for x in (rt, accuracy, congruency)) & (var_names is None):
+        raise TypeError('Please specify variable names for RT, Accuracy and Congruency conditions using either `rt`, `accuracy`, `congruency` or `var_names`')
+
 
     if var_names is None:
         var_names = [rt, accuracy, congruency]
@@ -1257,13 +1257,13 @@ def plot_fit(
     congruency_name: str = "congruency",
     congruency_name_emp: str = "congruency",
     n_delta_bins: int = 10,
-    set_ylim_delta: bool = False,
-    ylim_delta: Tuple[float, float] = (0.0, 0.07),
+    delta_ylim: Optional[Tuple[float, float]] = None,
+    delta_xlim: Optional[Tuple[float, float]] = None,
+    cdf_xlim: Optional[Tuple[float, float]] = None,
     fontsize: int = 14,
     fontsize_axes: int = 14,
     fontsize_ticklabels: int = 10,
     fontsize_legend: int = 12,
-    xlim_cdf: Tuple[float, float] = (0.35, 0.63),
     legend: bool = True,
     new_plot: bool = True,
     caf_errorbars: Optional[object] = None,
@@ -1314,10 +1314,12 @@ def plot_fit(
         Number of bins used when discretizing `mean_qu` with `pd.cut`
         (default: 10). Currently used when computing intermediate
         delta summaries.
-    set_ylim_delta : bool, optional
-        If True, apply `ylim_delta` to the Δ-function axis (default: False).
-    ylim_delta : tuple of float, optional
-        Y-axis limits for the Δ-function subplot (default: (0.0, 0.07)).
+    delta_ylim : tuple of float, optional
+        Y-axis limits for the Δ-function subplot.
+    delta_xlim : tuple of float, optional
+        X-axis limits for the Δ-function subplot.
+    cdf_xlim : tuple of float, optional
+        X-axis limits for the CDF-function subplot.
     fontsize : int, optional
         Font size for subplot titles (default: 14).
     fontsize_axes : int, optional
@@ -1326,9 +1328,6 @@ def plot_fit(
         Font size for tick labels (default: 10).
     fontsize_legend : int, optional
         Font size for the legend (default: 12).
-    xlim_cdf : tuple of float, optional
-        X-axis limits for the Δ-function subplot, interpreted as RT in seconds
-        (default: (0.35, 0.63)).
     legend : bool, optional
         If True, draw a legend for the CAF panel (default: True).
     new_plot : bool, optional
@@ -1442,7 +1441,7 @@ def plot_fit(
     axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
     axes[1].set_xlabel('RT[s]', fontsize=fontsize_axes)
 
-
+    # DELTA
     delta_data['mean_qu_bins'] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
     delta_bins = delta_data.groupby('mean_qu_bins', observed=False)['delta'].mean().reset_index()
     delta_bins['bin_mid'] = delta_bins['mean_qu_bins'].apply(lambda x: x.mid)
@@ -1478,10 +1477,15 @@ def plot_fit(
     axes[2].set_ylabel('$\Delta$', fontsize=fontsize_axes)
     axes[2].set_xlabel('RT[s]', fontsize=fontsize_axes)
     axes[2].set_title('$\Delta$-Function', fontsize=fontsize)
-    axes[2].set(xlim=xlim_cdf)
+    
+    if cdf_xlim is not None:
+        axes[2].set(xlim=cdf_xlim)
 
-    if set_ylim_delta:
-        axes[2].set(ylim=ylim_delta)
+    if delta_ylim is not None:
+        axes[2].set(ylim=delta_ylim)
+
+    if delta_xlim is not None:
+        axes[2].set(ylim=delta_ylim)
 
     if legend:
         axes[0].legend(title='', loc='lower right', fontsize=fontsize_legend, frameon=False)
