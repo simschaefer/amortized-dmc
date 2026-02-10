@@ -128,10 +128,11 @@ def check_congruency(
         mean_inc = data.loc[data[congruency] == output_coding_inc, rt].mean()
         diff = mean_inc - mean_con
 
-        warnings.warn(
-            f"'{congruency}' has been recoded to congruent -> {output_coding_con} / incongruent -> {output_coding_inc}. "
-            f"RT Difference between incongruent - congruent conditions: {diff}."
-        )
+        if {output_coding_con, output_coding_inc} != {"congruent", "incongruent"}:
+            warnings.warn(
+                f"'{congruency}' has been recoded to congruent -> {output_coding_con} / incongruent -> {output_coding_inc}. "
+                f"RT Difference between incongruent - congruent conditions: {diff}."
+            )
 
     # final sanity check (runs for all cases)
     mean_con = data.loc[data[congruency] == output_coding_con, rt].mean()
