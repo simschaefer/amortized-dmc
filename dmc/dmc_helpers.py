@@ -11,6 +11,7 @@ from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List, Any
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import numpy.typing as npt
+from tqdm import tqdm
 
 
 def hdi(
@@ -264,7 +265,11 @@ def fit_empirical_data(
     - The `approximator` must support a `sample` method with arguments:
       `conditions` (dict) and `num_samples` (int).
     """
-    
+    def custom_warning_handler(message, category, filename, lineno, file=None, line=None):
+        tqdm.write(f"{category.__name__}: {message}")
+
+    warnings.showwarning = custom_warning_handler
+
     check_vars(data=data, rt=rt, accuracy=accuracy, congruency=congruency, id_name=id_name)
 
     # extract unique id labels
@@ -273,13 +278,29 @@ def fit_empirical_data(
     list_data_samples=[]
 
     # iterate over participants
-    for i, id in enumerate(ids):
+    for i in tqdm(range(0, len(ids)), desc="Sampling posteriors"):
+
+        id = ids[i]
         
         # select participant data
         part_data = data[data[id_name]==id]
         
-        # bring it into the right format (dictionary)
-        part_data = format_empirical_data(part_data, rt=rt, accuracy=accuracy, congruency=congruency)    
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+
+            # --- Your function call ---
+            part_data = format_empirical_data(
+                part_data,
+                rt=rt,
+                accuracy=accuracy,
+                congruency=congruency
+            )
+
+            # --- If a warning occurred ---
+            for w in caught:
+                tqdm.write(
+                    f"[ID {id}] {w.category.__name__}: {w.message}"
+                )
 
         # draw posterior samples with the given approximator
         start_time=time.time()
