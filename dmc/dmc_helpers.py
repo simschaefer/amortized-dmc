@@ -458,6 +458,7 @@ def resim_data_id(
     id_name: Union[str, int] = 'id',
     num_resims: int = 50,
     param_names: Sequence[str] = ("A", "tau", "mu_c", "mu_r", "b", "sd_r"),
+    lower_bound: float = 0
 ) -> pd.DataFrame:
     """
     Resimulates data based on posterior parameter samples for a given participant.
@@ -491,6 +492,9 @@ def resim_data_id(
         The list of parameter names to consider when filtering and passing values to the simulator. 
         These should match the columns in `post_sample_data`. Default is ["A", "tau", "mu_c", "mu_r", "b"].
 
+    lower_bound : float
+        Values that fall below the specified value are excluded before resimulating data.
+
     Returns:
     --------
     pandas.DataFrame
@@ -519,10 +523,11 @@ def resim_data_id(
     excluded_samples['num_samples'] = post_sample_data.shape[0]
     excluded_samples[id_name] = id
 
+
     # exclude negative samples
     for k, dat in resim_samples.items():
         if k in param_names:
-            samples = dat.values[dat.values >= 0]
+            samples = dat.values[dat.values >= lower_bound]
             np.random.shuffle(samples)
             resim_samples[k] = samples
 
@@ -559,7 +564,8 @@ def resim_data(empirical_data: pd.DataFrame,
                simulator_congruency: str = 'conditions',
                simulator_congruency_coding: float = 0.0,
                simulator_incongruency_coding: float = 1.0,
-               exclude_nonconvergents: bool = True):
+               exclude_nonconvergents: bool = True,
+               lower_bound: float = 0):
     
     """
     Perform posterior-predictive resimulations for each unit in an empirical dataset.
@@ -648,14 +654,16 @@ def resim_data(empirical_data: pd.DataFrame,
 
     lst_data = []
 
-    for id in ids:
+    for i in tqdm(range(0, len(ids)), desc=f"Resimulate {num_resims} data sets per ID"):
         
+        id = ids[i]
+
         num_obs = empirical_data[(empirical_data[id_name] == id)].shape[0]
 
         part_data_samples = post_samples[post_samples[id_name]==id]
 
         # resimulate data
-        data_resimulated = resim_data_id(part_data_samples, num_obs=num_obs, num_resims=num_resims, simulator=simulator, id=id, param_names=param_names)
+        data_resimulated = resim_data_id(part_data_samples, num_obs=num_obs, num_resims=num_resims, simulator=simulator, id=id, param_names=param_names, lower_bound=lower_bound)
         
         # exclude non-convergents
         if exclude_nonconvergents:
