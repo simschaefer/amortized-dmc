@@ -63,11 +63,11 @@ for network_name in network_names:
 
     approximator = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name + '.keras')
 
-    samples_narrow = dmc_helpers.fit_empirical_data(narrow_data, approximator)
+    samples_narrow = dmc_helpers.fit_empirical_data(narrow_data, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
     samples_narrow["spacing"]="narrow"
 
-    samples_wide = dmc_helpers.fit_empirical_data(wide_data, approximator)
+    samples_wide = dmc_helpers.fit_empirical_data(wide_data, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
     samples_wide["spacing"]="wide"
 

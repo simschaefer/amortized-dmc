@@ -53,12 +53,103 @@ def hdi(
     return hdi_min, hdi_max
 
 
+def check_vars(data: pd.DataFrame,
+               rt: str = None,
+               accuracy: str = None,
+               id_name: str = None,
+               congruency: str = None):
+
+    var_names = ['Reaction Times (rt=...)', 'Accuracy (accuracy=...)', 'the Identifier (id_name=...)', 'Congruency (congruency=...)']
+
+    for i, var in enumerate([rt, accuracy, id_name, congruency]):
+        if var is not None:
+            if var not in set(data.columns):
+                raise ValueError(f"Variable '{var}' does not exist in data. Please specify a valid name for {var_names[i]}.")
+
+def check_congruency(
+    data: pd.DataFrame,
+    rt: str = None,
+    congruency: str = None,
+    output_coding_con="congruent",
+    output_coding_inc="incongruent",
+):
+    check_vars(data=data, rt=rt, congruency=congruency, accuracy=None, id_name=None)
+
+    if congruency is None:
+        return data
+
+    congruency_labels = set(data[congruency].dropna().unique())
+
+    allowed = [
+        {"congruent", "incongruent"},
+        {0, 1},
+        {"con", "inc"},
+        {output_coding_con, output_coding_inc},
+    ]
+    if not any(congruency_labels == s for s in allowed):
+        raise ValueError(
+            f"Congruency variable is coded as {congruency_labels}. Please recode "
+            f"'{congruency}' to 'congruent' / 'incongruent' before submitting data to this function."
+        )
+
+    # recode using map (no FutureWarning)
+    if congruency_labels == {"con", "inc"}:
+        mapping = {"con": output_coding_con, "inc": output_coding_inc}
+        data[congruency] = data[congruency].map(mapping).astype("object")
+
+        mean_con = data.loc[data[congruency] == output_coding_con, rt].mean()
+        mean_inc = data.loc[data[congruency] == output_coding_inc, rt].mean()
+        diff = mean_inc - mean_con
+
+        warnings.warn(
+            f"'{congruency}' has been recoded to con -> {output_coding_con} / inc -> {output_coding_inc}. "
+            f"RT Difference between incongruent - congruent conditions: {diff}."
+        )
+
+    elif congruency_labels == {0, 1} and congruency_labels != {output_coding_con, output_coding_inc}:
+        mapping = {0: output_coding_con, 1: output_coding_inc}
+        data[congruency] = data[congruency].map(mapping).astype("object")
+
+        mean_con = data.loc[data[congruency] == output_coding_con, rt].mean()
+        mean_inc = data.loc[data[congruency] == output_coding_inc, rt].mean()
+        diff = mean_inc - mean_con
+
+        warnings.warn(
+            f"'{congruency}' has been recoded to 0 -> {output_coding_con} / 1 -> {output_coding_inc}. "
+            f"RT Difference between incongruent - congruent conditions: {diff}."
+        )
+
+    elif congruency_labels == {"congruent", "incongruent"}:
+        mapping = {"congruent": output_coding_con, "incongruent": output_coding_inc}
+        data[congruency] = data[congruency].map(mapping).astype("object")
+
+        mean_con = data.loc[data[congruency] == output_coding_con, rt].mean()
+        mean_inc = data.loc[data[congruency] == output_coding_inc, rt].mean()
+        diff = mean_inc - mean_con
+
+        warnings.warn(
+            f"'{congruency}' has been recoded to congruent -> {output_coding_con} / incongruent -> {output_coding_inc}. "
+            f"RT Difference between incongruent - congruent conditions: {diff}."
+        )
+
+    # final sanity check (runs for all cases)
+    mean_con = data.loc[data[congruency] == output_coding_con, rt].mean()
+    mean_inc = data.loc[data[congruency] == output_coding_inc, rt].mean()
+    diff = mean_inc - mean_con
+    if diff < 0:
+        warnings.warn(
+            f"RT Difference between incongruent - congruent conditions is negative: {diff}. "
+            f"Please check the coding of congruency conditions."
+        )
+
+    return data
+
+
 def format_empirical_data(
     data: pd.DataFrame,
     rt: str = None,
     accuracy: str = None,
     congruency: str = None,
-    var_names: Optional[Sequence[str]] = None,
 ) -> Dict[str, np.ndarray]:
     """
     Formats empirical behavioral data into a structured dictionary for model inference.
@@ -79,12 +170,6 @@ def format_empirical_data(
         Column name for accuracy in empirical data set.
     congruency : str
         Column name for congruency (coded as or 0 (congruent) /1 (incongruent)).
-    var_names : Sequence[str]
-        Can be used to pass variable names in a single list. Make sure, the names are in the correct order: 
-        1. RT-variable name
-        2. Accuracy variable name
-        3. Congruency conditions variable names
-        Overwrites `rt`, `accuracy`, and `congruency` if specified.
 
     Returns:
     --------
@@ -102,11 +187,9 @@ def format_empirical_data(
     (batch, number of observations, variable).
     """
 
-    if any(x is None for x in (rt, accuracy, congruency)) & (var_names is None):
-        raise TypeError('Please specify variable names for RT, Accuracy and Congruency conditions using either `rt`, `accuracy`, `congruency` or `var_names`')
+    data = check_congruency(data=data, rt=rt, congruency=congruency, output_coding_con=0, output_coding_inc=1)
 
-    if var_names is None:
-        var_names = [rt, accuracy, congruency]
+    var_names = [rt, accuracy, congruency]
     
     # extract relevant variables
     data_np = data[var_names].values
@@ -115,30 +198,6 @@ def format_empirical_data(
     inference_data = dict(rt=data_np[:,0],
                           accuracy=data_np[:,1],
                           conditions=data_np[:,2])
-
-    allowed = {0, 1}
-    vals = set(np.unique(inference_data['conditions']))
-
-    if not vals.issubset(allowed):
-        warnings.warn(
-            f"Congruency variable is coded as {vals}. "
-            "Change to 0 (congruent) / 1 (incongruent) before submitting to this function."
-        )
-
-    else:
-        # check congruency coding
-        mean_con = inference_data['rt'][inference_data['conditions'] == 0].mean()
-
-        mean_inc = inference_data['rt'][inference_data['conditions'] == 1].mean()
-
-        diff = mean_inc - mean_con
-
-        if diff < 0:
-            warnings.warn(
-                f"Difference between incongruent - congruent conditions in RT is negative: {diff}. Please check the coding of congruency conditions."
-            )
-
-    
 
     # add dimensions so it fits training data
     inference_data = {k: v[np.newaxis,..., np.newaxis] for k, v in inference_data.items()}
@@ -152,11 +211,11 @@ def format_empirical_data(
 def fit_empirical_data(
     data: pd.DataFrame,
     approximator: Any,
+    num_samples: int = 1000,
     id_name: str = "id",
     rt: str = None,
     accuracy: str = None,
     congruency: str = None,
-    var_names: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """
     Samples posteriors for empirical data for each unique subject or group.
@@ -187,12 +246,6 @@ def fit_empirical_data(
         Column name for accuracy in empirical data set.
     congruency : str
         Column name for congruency (coded as or 0 (congruent) /1 (incongruent)).
-    var_names : Sequence[str]
-        Can be used to pass variable names in a single list. Make sure, the names are in the correct order: 
-        1. RT-variable name
-        2. Accuracy variable name
-        3. Congruency conditions variable names
-        Overwrites `rt`, `accuracy`, and `congruency` if specified.
 
     Returns:
     --------
@@ -212,13 +265,7 @@ def fit_empirical_data(
       `conditions` (dict) and `num_samples` (int).
     """
     
-    if any(x is None for x in (rt, accuracy, congruency)) & (var_names is None):
-        raise TypeError('Please specify variable names for RT, Accuracy and Congruency conditions using either `rt`, `accuracy`, `congruency` or `var_names`')
-
-
-    if var_names is None:
-        var_names = [rt, accuracy, congruency]
-    
+    check_vars(data=data, rt=rt, accuracy=accuracy, congruency=congruency, id_name=id_name)
 
     # extract unique id labels
     ids=data[id_name].unique()
@@ -232,11 +279,11 @@ def fit_empirical_data(
         part_data = data[data[id_name]==id]
         
         # bring it into the right format (dictionary)
-        part_data = format_empirical_data(part_data, var_names=var_names)    
+        part_data = format_empirical_data(part_data, rt=rt, accuracy=accuracy, congruency=congruency)    
 
         # draw posterior samples with the given approximator
         start_time=time.time()
-        samples = approximator.sample(conditions=part_data, num_samples=1000)
+        samples = approximator.sample(conditions=part_data, num_samples=num_samples)
         end_time=time.time()
         
         # computing total sampling time
@@ -464,21 +511,9 @@ def resim_data_id(
     # resimulate
     for i in range(num_resims):
 
-        if simulator.sdr_fixed is not None:
-            resim =  simulator.experiment(A=resim_samples["A"][i],
-                                    tau=resim_samples["tau"][i],
-                                    mu_c=resim_samples["mu_c"][i],
-                                    mu_r=resim_samples["mu_r"][i],
-                                    b=resim_samples["b"][i],
-                                    num_obs=num_obs)
-        else:
-            resim =  simulator.experiment(A=resim_samples["A"][i],
-                        tau=resim_samples["tau"][i],
-                        mu_c=resim_samples["mu_c"][i],
-                        mu_r=resim_samples["mu_r"][i],
-                        b=resim_samples["b"][i],
-                        num_obs=num_obs,
-                        sd_r=resim_samples['sd_r'][i])
+        iteration_dict = {key: values[i] for key, values in resim_samples.items() if key in param_names}
+
+        resim =  simulator.experiment(**iteration_dict | {'num_obs': num_obs})
 
         resim_df = pd.DataFrame(resim)
         
@@ -488,16 +523,21 @@ def resim_data_id(
         list_resim_dfs.append(pd.DataFrame(resim_df))
 
     resim_complete = pd.concat(list_resim_dfs)
-    
+
     return resim_complete
 
-def resim_data(empirical_data, 
-               post_samples,
+def resim_data(empirical_data: pd.DataFrame, 
+               post_samples: pd.DataFrame,
                simulator,
                num_resims: int = 50,
                param_names: Sequence[str] = ("A", "tau", "mu_c", "mu_r", "b", "sd_r"),
-               id_name = 'id',
-               congruency_name = 'congruency'):
+               rt: str = 'rt',
+               id_name: str = 'id',
+               congruency: str = 'congruency',
+               simulator_congruency: str = 'conditions',
+               simulator_congruency_coding: float = 0.0,
+               simulator_incongruency_coding: float = 1.0,
+               exclude_nonconvergents: bool = True):
     
     """
     Perform posterior-predictive resimulations for each unit in an empirical dataset.
@@ -510,7 +550,7 @@ def resim_data(empirical_data,
     After simulation, the function:
     1) removes non-convergent trials (defined as `rt == -1`),
     2) recodes the numeric condition codes in the `conditions` column into a
-       human-readable congruency label column (`congruency_name`) using the mapping
+       human-readable congruency label column (`congruency`) using the mapping
        `{0.0: "congruent", 1.0: "incongruent"}`.
 
     Parameters
@@ -526,6 +566,9 @@ def resim_data(empirical_data,
         `post_samples[post_samples[id_name] == part]` and passes it to
         `resim_data_id(...)`.
 
+    rt: str,
+        Name of the reaction time variable in `data.
+
     simulator : object
         A simulator instance compatible with `resim_data_id(...)` (typically
         exposing an `experiment(...)` method).
@@ -534,9 +577,21 @@ def resim_data(empirical_data,
         Name of the identifier column used to match empirical units to posterior
         samples. Default is `'id'`.
 
-    congruency_name : str, optional
+    congruency : str, optional
         Name of the output column storing congruency labels derived from the
-        numeric `conditions` column. Default is `'congruency'`.
+        numeric simulator_congruency column. Default is `'congruency'`.
+
+    simulator_congruency : str
+        Name of the congruency conditions variable as simulated by the simulator.
+
+    simulator_congruency_coding : float
+        values/ label of the congruent condition in the simulator_congruency variable. Default is `0.0`.
+
+    simulator_incongruency_coding: float
+        values/ label of the incongruent condition in the simulator_congruency variable. Default is `1.0`.
+
+    exclude_nonconvergents: bool
+        Indicates if nonconvergent trials (rt = -1) should be excluded. Default is `True`.
 
     Returns
     -------
@@ -544,7 +599,7 @@ def resim_data(empirical_data,
         A list of per-identifier resimulated datasets. Each element is a
         trial-level DataFrame produced by `resim_data_id(...)`, filtered to remove
         `rt == -1` rows and augmented with a congruency label column
-        (`congruency_name`).
+        (`congruency`).
 
     External Dependencies / Assumptions
     -----------------------------------
@@ -565,6 +620,8 @@ def resim_data(empirical_data,
       If your simulator uses different coding, adjust the mapping accordingly.
     """
 
+    check_vars(data=empirical_data, id_name=id_name, rt=rt, congruency=congruency)
+
     ids = empirical_data[id_name].unique()
 
     lst_data = []
@@ -579,10 +636,11 @@ def resim_data(empirical_data,
         data_resimulated = resim_data_id(part_data_samples, num_obs=num_obs, num_resims=num_resims, simulator=simulator, id=id, param_names=param_names)
         
         # exclude non-convergents
-        data_resimulated = data_resimulated[data_resimulated["rt"] != -1]
+        if exclude_nonconvergents:
+            data_resimulated = data_resimulated[data_resimulated[rt] != -1]
 
         # recode congruency
-        data_resimulated[congruency_name] = data_resimulated["conditions"].map({0.0: "congruent", 1.0: "incongruent"})
+        data_resimulated[congruency] = data_resimulated[simulator_congruency].map({simulator_congruency_coding: "congruent", simulator_incongruency_coding: "incongruent"})
 
         lst_data.append(data_resimulated)
 
@@ -912,10 +970,12 @@ def format_sim_data(
 
 
 def compute_stats(
-    df_complete: pd.DataFrame,
+    data: pd.DataFrame,
     id_name: str = "id",
-    congruency_name: str = "congruency",
     n_rt_bins: int = 5,
+    rt: str = 'rt',
+    accuracy: str = 'accuracy',
+    congruency: str = "congruency",
     quantiles: Union[np.ndarray, Sequence[float]] = np.arange(0.1, 1.0, 0.1),
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
@@ -926,7 +986,7 @@ def compute_stats(
 
     1. **Δ-function data (`delta_data`)**:
        Quantiles of RT computed *only on correct trials* (``accuracy == 1``) for each
-       ``id_name`` × ``congruency_name`` group, then pivoted to wide format with
+       ``id_name`` × ``congruency`` group, then pivoted to wide format with
        separate columns per congruency level (expected: ``'congruent'`` and
        ``'incongruent'``). It additionally computes:
 
@@ -943,7 +1003,7 @@ def compute_stats(
 
     Parameters
     ----------
-    df_complete : pandas.DataFrame
+    data : pandas.DataFrame
         Trial-level (long-format) data containing RTs and accuracy. Required columns:
 
         - ``'rt'`` : float
@@ -953,7 +1013,7 @@ def compute_stats(
             correct for Δ-function quantiles.
         - ``{id_name}`` : hashable (e.g., int | str)
             Identifier for subject/session/batch.
-        - ``{congruency_name}`` : str-like / categorical
+        - ``{congruency}`` : str-like / categorical
             Congruency label. The Δ-function computation assumes that the pivot will
             yield columns named ``'congruent'`` and ``'incongruent'``.
 
@@ -965,7 +1025,7 @@ def compute_stats(
     id_name : str, default='id'
         Column name identifying independent units (e.g., participant, session, batch).
 
-    congruency_name : str, default='congruency'
+    congruency : str, default='congruency'
         Column name indicating congruency condition. For downstream computations,
         the values are expected to include levels that pivot to columns named
         ``'congruent'`` and ``'incongruent'``.
@@ -973,6 +1033,12 @@ def compute_stats(
     n_rt_bins : int, default=5
         Number of quantile bins used to discretize RTs for the CAF computation.
         Implemented with ``pandas.qcut`` (approximately equal-sized bins).
+
+    rt : str, default='rt'
+        Variable name of the reaction time variable.
+    
+    accuracy : str, default='accuracy'
+        Variable name of the accuracy (1 = correct response, 0 = incorrect response)
 
     quantiles : numpy.ndarray or Sequence[float], default=np.arange(0.1, 1.0, 0.1)
         Quantile levels at which to compute RT quantiles for correct trials. Values
@@ -984,7 +1050,7 @@ def compute_stats(
         DataFrame containing conditional accuracy values per RT bin. Expected columns:
 
         - ``{id_name}``
-        - ``{congruency_name}``
+        - ``{congruency}``
         - ``'rt_bin'`` : int
         - ``'accuracy'`` : float
 
@@ -1010,7 +1076,7 @@ def compute_stats(
     Raises
     ------
     KeyError
-        If required columns are missing from ``df_complete``.
+        If required columns are missing from ``data``.
     ValueError
         If ``pandas.qcut`` fails (e.g., due to too many duplicate RT values causing
         non-unique bin edges), or if the required congruency levels do not produce
@@ -1018,28 +1084,35 @@ def compute_stats(
 
     Examples
     --------
-    >>> caf_data, cdf_data, delta_data = compute_stats(df_complete, id_name="subject_id")
+    >>> caf_data, cdf_data, delta_data = compute_stats(data, id_name="subject_id")
     >>> # Pass outputs to plotting utilities
     >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data, id_name="subject_id")
     """
+
+    check_vars(data=data, rt=rt, accuracy=accuracy, congruency=congruency, id_name=id_name)
+
+    data = check_congruency(data=data, rt=rt, congruency=congruency, output_coding_con='congruent', output_coding_inc='incongruent')
+
+    data[rt] = pd.to_numeric(data[rt], errors="coerce")
+
     delta_data = (
-        df_complete[df_complete["accuracy"] == 1]
-        .groupby([id_name, congruency_name])["rt"]
+        data[data[accuracy] == 1]
+        .groupby([id_name, congruency])[rt]
         .quantile(quantiles)
         .reset_index()
         .rename(columns={"level_2": "quantile"})
-        .pivot(index=[id_name, "quantile"], columns=[congruency_name], values="rt")
+        .pivot(index=[id_name, "quantile"], columns=[congruency], values=rt)
         .reset_index()
         .assign(delta=lambda df: df["incongruent"] - df["congruent"])
         .assign(mean_qu=lambda df: (df["incongruent"] + df["congruent"]) / 2)
     )
 
-    df = df_complete.copy()
+    df = data.copy()
 
-    df["rt_bin"] = pd.qcut(df["rt"], q=n_rt_bins, labels=False)
+    df["rt_bin"] = pd.qcut(df[rt], q=n_rt_bins, labels=False)
 
     caf_data = (
-        df.groupby([id_name, congruency_name, "rt_bin"])["accuracy"]
+        df.groupby([id_name, congruency, "rt_bin"])[accuracy]
         .mean()
         .reset_index()
         .rename(columns={"level_2": "quantile"})
@@ -1051,7 +1124,7 @@ def compute_stats(
         id_vars=[id_name, "quantile"],
         value_vars=["congruent", "incongruent"],
         var_name="condition",
-        value_name="rt",
+        value_name=rt,
     )
 
     return caf_data, cdf_data, delta_data
@@ -1063,7 +1136,8 @@ def plot_stats(
     delta_data: pd.DataFrame,
     alpha: float = 0.05,
     id_name: str = "id",
-    congruency_name: str = "congruency",
+    congruency: str = "congruency",
+    rt : str = 'rt',
     n_delta_bins: int = 10,
     fontsize: int = 24,
     fontsize_axes: int = 15,
@@ -1078,7 +1152,7 @@ def plot_stats(
     The function creates a single figure with three subplots arranged horizontally:
 
     1. **CAF**: Accuracy as a function of binned RT (``rt_bin``), stratified by
-       ``congruency_name``.
+       ``congruency``.
     2. **CDF**: Empirical CDFs (quantile vs. RT) for each ``condition``. Individual
        trajectories are shown per ``id_name`` (faint lines) and an overlaid mean CDF
        is shown per ``condition``.
@@ -1106,7 +1180,7 @@ def plot_stats(
 
         - ``'rt_bin'``: RT bin index/label (x-axis of CAF).
         - ``'accuracy'``: Accuracy per bin (y-axis of CAF).
-        - A column named by ``congruency_name``: Grouping variable for CAF lines.
+        - A column named by ``congruency``: Grouping variable for CAF lines.
 
     cdf_data : pandas.DataFrame
         Long-format data for the CDF panel. Must contain at least:
@@ -1124,8 +1198,11 @@ def plot_stats(
         Column name used as an identifier for individual trajectories in the CDF and
         Δ-function panels.
 
-    congruency_name : str, default='congruency'
+    congruency : str, default='congruency'
         Column name used to stratify the CAF panel.
+
+    rt: str, default='rt'
+        Columns name of the reaction time variable.
 
     n_delta_bins : int, default=10
         Number of bins used when discretizing ``delta_data['mean_qu']`` into
@@ -1163,12 +1240,12 @@ def plot_stats(
     --------
     >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data, id_name="subject")
     """
-    mean_data = cdf_data.groupby(["quantile", "condition"])["rt"].mean().reset_index()
+    mean_data = cdf_data.groupby(["quantile", "condition"])[rt].mean().reset_index()
 
     fig, axes = plt.subplots(1, 3, figsize=(12, 3))
 
     # CAF
-    sns.lineplot(caf_data, x="rt_bin", y="accuracy", hue=congruency_name, ax=axes[0])
+    sns.lineplot(caf_data, x="rt_bin", y="accuracy", hue=congruency, ax=axes[0])
 
     axes[0].set_title("CAF", fontsize=fontsize)
     axes[0].set_ylabel("CAF", fontsize=fontsize_axes)
@@ -1178,7 +1255,7 @@ def plot_stats(
     # single CDF
     sns.lineplot(
         cdf_data,
-        x="rt",
+        x=rt,
         y="quantile",
         hue="condition",
         style=id_name,
@@ -1187,7 +1264,7 @@ def plot_stats(
         alpha=alpha,
     )
     # mean CDF
-    sns.lineplot(mean_data, x="rt", y="quantile", hue="condition", alpha=1, ax=axes[1])
+    sns.lineplot(mean_data, x=rt, y="quantile", hue="condition", alpha=1, ax=axes[1])
 
     axes[1].set_title("CDF", fontsize=fontsize)
     axes[1].set_xlabel("RT[s]", fontsize=fontsize_axes)
@@ -1254,8 +1331,8 @@ def plot_fit(
     caf_data_emp: pd.DataFrame,
     cdf_data_emp: pd.DataFrame,
     delta_data_emp: pd.DataFrame,
-    congruency_name: str = "congruency",
-    congruency_name_emp: str = "congruency",
+    congruency: str = "congruency",
+    congruency_emp: str = "congruency",
     n_delta_bins: int = 10,
     delta_ylim: Optional[Tuple[float, float]] = None,
     delta_xlim: Optional[Tuple[float, float]] = None,
@@ -1294,20 +1371,20 @@ def plot_fit(
         ['quantile', 'mean_qu', 'delta'].
     caf_data : pandas.DataFrame
         Model CAF data with columns including:
-        ['rt_bin', 'accuracy', <congruency_name>].
+        ['rt_bin', 'accuracy', <congruency>].
     caf_data_emp : pandas.DataFrame
         Empirical CAF data with columns including:
-        ['rt_bin', 'accuracy', <congruency_name_emp>].
+        ['rt_bin', 'accuracy', <congruency_emp>].
     cdf_data : pandas.DataFrame
         Long-format model RT data with columns:
         ['quantile', 'condition', 'rt'].
     cdf_data_emp : pandas.DataFrame
         Long-format empirical RT data with columns:
         ['quantile', 'condition', 'rt'].
-    congruency_name : str, optional
+    congruency : str, optional
         Column name in `caf_data` indicating congruency condition
         for the model (default: 'congruency').
-    congruency_name_emp : str, optional
+    congruency_emp : str, optional
         Column name in `caf_data_emp` indicating congruency condition
         for the empirical data (default: 'congruency').
     n_delta_bins : int, optional
@@ -1380,7 +1457,7 @@ def plot_fit(
                  linewidth=linewidth,
                  x='rt_bin', 
                  y='accuracy', 
-                 hue=congruency_name, 
+                 hue=congruency, 
                  errorbar=caf_errorbars, 
                  ax=axes[0],
                  legend=False, 
@@ -1397,7 +1474,7 @@ def plot_fit(
                  linewidth=linewidth,
                  x='rt_bin', 
                  y='accuracy', 
-                 hue=congruency_name_emp, 
+                 hue=congruency_emp, 
                  ax=axes[0], 
                  hue_order=hue_order, 
                  palette=palette_emp)

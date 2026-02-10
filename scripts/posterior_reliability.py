@@ -98,14 +98,14 @@ wide_data_odd=wide_data[wide_data['n_trial_experiment'] % 2 != 0]
 
 
 # Sample Individual Posterior Samples NARROW
-post_samples_narrow_even = fit_empirical_data(narrow_data_even, approximator)
+post_samples_narrow_even = fit_empirical_data(narrow_data_even, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
-post_samples_narrow_odd = fit_empirical_data(narrow_data_odd, approximator)
+post_samples_narrow_odd = fit_empirical_data(narrow_data_odd, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
 # Sample Individual Posterior Samples WIDE
-post_samples_wide_even = fit_empirical_data(wide_data_even, approximator)
+post_samples_wide_even = fit_empirical_data(wide_data_even, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
-post_samples_wide_odd = fit_empirical_data(wide_data_odd, approximator)
+post_samples_wide_odd = fit_empirical_data(wide_data_odd, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
 
 # Index Samples per participant Narrow EVEN
@@ -278,9 +278,9 @@ for ds in data_sets:
     data_odd.rename(columns={'RT': 'rt', 'corr_resp': 'accuracy'}, inplace=True)
 
 
-    post_samples_even = fit_empirical_data(data_even, approximator, id_label="participant")
+    post_samples_even = fit_empirical_data(data_even, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
-    post_samples_odd = fit_empirical_data(data_odd, approximator, id_label="participant")
+    post_samples_odd = fit_empirical_data(data_odd, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
 
     post_means_even = post_samples_even.groupby('participant').mean().reset_index()

@@ -79,7 +79,7 @@ plt.figure()
 sns.histplot(train_data_wide.groupby(['participant', 'congruency_num']).mean('accuracy').reset_index(), x='accuracy', hue='congruency_num')
 
 # posterior samples 
-empirical_samples_narrow = dmc_helpers.fit_empirical_data(train_data_narrow, approximator)
+empirical_samples_narrow = dmc_helpers.fit_empirical_data(train_data_narrow, approximator, id_name='participant', rt='rt', accuracy='accuracy', congruency='congruency_num')
 
 
 for part in empirical_samples_narrow['participant'].unique():

@@ -1,2 +1,2 @@
 from .dmc_simulator import DMC
-from .dmc_helpers import  hdi, resim_data, resim_data_id, post_samples_to_df, weighted_metric_sum, fit_empirical_data, format_empirical_data, param_labels, format_sim_data, compute_stats, plot_stats, plot_fit, smd_samples
+from .dmc_helpers import  hdi, resim_data, check_vars, check_congruency, resim_data_id, post_samples_to_df, weighted_metric_sum, fit_empirical_data, format_empirical_data, param_labels, format_sim_data, compute_stats, plot_stats, plot_fit, smd_samples
