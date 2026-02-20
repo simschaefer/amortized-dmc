@@ -7,7 +7,7 @@ import copy
 import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
-from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List, Any
+from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List, Any, Iterable, Hashable, Literal
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 import numpy.typing as npt
@@ -1605,3 +1605,885 @@ def plot_fit(
 
     return fig, axes
    
+
+def summarise_q(
+    data: pd.DataFrame,
+    rt: str = "rt",
+    accuracy: str = "accuracy",
+    congruency: str = "congruency",
+    grouping_vars: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """
+    Compute quantile-based and mean summary statistics of response times (RT)
+    and accuracy within groups.
+
+    This function aggregates trial-level data into distributional summaries
+    commonly used for model fit evaluation (e.g., quantile-based fit of RT
+    distributions). For each group defined by `grouping_vars`, the function
+    computes:
+
+        - RT quantiles (25th, 50th, 75th percentiles)
+        - Mean RT
+        - Mean accuracy
+
+    The resulting DataFrame is returned in wide format, with one row per group
+    and separate columns for each RT quantile and mean statistic.
+
+    Parameters
+    ----------
+    data
+        Trial-level DataFrame containing at minimum RT, accuracy, and
+        congruency columns.
+    rt
+        Column name containing response times (numeric).
+    accuracy
+        Column name containing response accuracy (numeric; typically 0/1).
+    congruency
+        Column name indicating congruency condition labels.
+    grouping_vars
+        Columns used to define grouping structure (e.g., participant and
+        condition). If None, defaults to ["participant", "congruency"].
+
+    Returns
+    -------
+    pandas.DataFrame
+        A wide-format DataFrame with one row per group defined by
+        `grouping_vars`. Contains:
+
+            - Grouping variables
+            - mean_rt : mean response time per group
+            - mean_acc : mean accuracy per group
+            - rt_q25 : 25th percentile of RT
+            - rt_q50 : 50th percentile (median) of RT
+            - rt_q75 : 75th percentile of RT
+
+    Notes
+    -----
+    - `check_vars()` is used to validate the presence and format of required
+      columns.
+    - `check_congruency()` standardizes congruency coding before aggregation.
+    - RT quantiles are computed across all trials within each group; if
+      quantiles should be restricted (e.g., correct trials only), filtering
+      must be applied prior to calling this function.
+    """
+    if grouping_vars is None:
+        grouping_vars = ["participant", "congruency"]
+
+    check_vars(data, rt=rt, accuracy=accuracy, congruency=congruency)
+
+    data = check_congruency(
+        data,
+        rt=rt,
+        congruency=congruency,
+        output_coding_con="congruent",
+        output_coding_inc="incongruent",
+    )
+
+    df_q = (
+        data
+        .groupby(grouping_vars)[rt]
+        .quantile([0.25, 0.5, 0.75])
+        .rename_axis(index=[*grouping_vars, "quantile"])
+        .reset_index()
+    )
+
+    df_means = (
+        data
+        .groupby(grouping_vars)
+        .agg(
+            mean_rt=(rt, "mean"),
+            mean_acc=(accuracy, "mean"),
+        )
+        .reset_index()
+    )
+
+    df_q = df_q.merge(df_means, on=grouping_vars)
+
+    df_q_wide = (
+        df_q
+        .pivot_table(
+            index=grouping_vars + ["mean_rt", "mean_acc"],
+            columns="quantile",
+            values=rt,
+        )
+        .reset_index()
+    )
+
+    df_q_wide = df_q_wide.rename(
+        columns={
+            0.25: "rt_q25",
+            0.50: "rt_q50",
+            0.75: "rt_q75",
+        }
+    )
+
+    return df_q_wide
+
+
+def compute_fit_qs(
+    resimulated_data: pd.DataFrame,
+    empirical_data: pd.DataFrame,
+    rt: str = "rt",
+    accuracy: str = "accuracy",
+    congruency: str = "congruency",
+    grouping_vars: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """
+    Compute and merge quantile-based summary statistics for empirical and
+    resimulated datasets.
+
+    This function summarises response time (RT) distributions and accuracy
+    within groups for both empirical and resimulated data using `summarise_q()`,
+    and merges the resulting summaries into a single comparison table. For each
+    group defined by `grouping_vars`, the following statistics are computed:
+
+        - RT quantiles (25th, 50th, 75th percentiles)
+        - Mean RT
+        - Mean accuracy
+
+    Parameters
+    ----------
+    resimulated_data
+        DataFrame containing model-generated (resimulated) trial-level data.
+    empirical_data
+        DataFrame containing empirical trial-level data.
+    rt
+        Column name containing reaction times.
+    accuracy
+        Column name containing response accuracy (expected numeric, e.g., 0/1).
+    congruency
+        Column name containing congruency condition labels.
+    grouping_vars
+        Columns used to define grouping structure (e.g., participant and
+        condition). If None, defaults to ["participant", "congruency"].
+
+    Returns
+    -------
+    pandas.DataFrame
+        A merged DataFrame containing quantile and mean summaries for both
+        resimulated and empirical data. Columns from the two datasets are
+        distinguished by suffixes:
+
+            - '_resim' for resimulated data
+            - '_emp' for empirical data
+
+        The DataFrame is keyed by `grouping_vars`.
+
+    Notes
+    -----
+    - This function does not compute formal fit statistics (e.g., correlations
+      or error metrics). It prepares distributional summaries that can be used
+      for subsequent model fit evaluation.
+    - Internally relies on `summarise_q()` for quantile and mean computation.
+    """
+    if grouping_vars is None:
+        grouping_vars = ["participant", "congruency"]
+
+    df_q_emp_wide = summarise_q(
+        empirical_data,
+        rt=rt,
+        accuracy=accuracy,
+        congruency=congruency,
+        grouping_vars=grouping_vars,
+    )
+
+    df_q_wide = summarise_q(
+        resimulated_data,
+        rt=rt,
+        accuracy=accuracy,
+        congruency=congruency,
+        grouping_vars=grouping_vars,
+    )
+
+    data_merged = pd.merge(
+        df_q_wide,
+        df_q_emp_wide,
+        how="left",
+        on=grouping_vars,
+        suffixes=("_resim", "_emp"),
+    )
+
+    return data_merged
+
+def plot_fit_qs(
+    data: pd.DataFrame,
+    con_color: str = "#10225e",
+    inc_color: str = "#FF6361",
+    fontsize: int = 22
+) -> Tuple[Figure, list[Axes]]:
+    """
+    Visualize quantile-based model fit by comparing empirical and resimulated
+    summary statistics.
+
+    This function generates a panel of scatterplots comparing empirical and
+    resimulated summary measures (typically produced by `compute_fit_qs()`).
+    For each statistic, empirical values are plotted on the x-axis and the
+    corresponding resimulated values on the y-axis. A dashed diagonal
+    reference line (y = x) indicates perfect agreement.
+
+    Five statistics are visualized:
+
+        - Mean RT
+        - Mean accuracy
+        - 25th percentile RT
+        - Median RT (50th percentile)
+        - 75th percentile RT
+
+    Points are colored by congruency condition (expected labels:
+    "congruent" and "incongruent").
+
+    Parameters
+    ----------
+    data
+        DataFrame containing merged empirical and resimulated summaries.
+        Required columns:
+
+            - 'congruency'
+            - 'mean_rt_emp',  'mean_rt_resim'
+            - 'mean_acc_emp', 'mean_acc_resim'
+            - 'rt_q25_emp',   'rt_q25_resim'
+            - 'rt_q50_emp',   'rt_q50_resim'
+            - 'rt_q75_emp',   'rt_q75_resim'
+
+    con_color
+        Hex color used for the "congruent" condition.
+    inc_color
+        Hex color used for the "incongruent" condition.
+    fontsize
+        Font size of the figure text.
+
+
+    Returns
+    -------
+    fig
+        The Matplotlib figure.
+    axes
+        A list of the five subplot axes (left-to-right).
+
+    Notes
+    -----
+    - Accuracy plots use fixed limits (0.6–1.0); RT plots use limits derived
+      from the empirical values.
+    - If your congruency labels differ, adjust `hue_order` and `palette`.
+    """
+    hue_order = ["congruent", "incongruent"]
+    palette = {"congruent": con_color, "incongruent": inc_color}
+
+    titles = ["Mean RT", "Mean Accuracy", "25% Quantile RT", "Median RT", "75% Quantile RT"]
+    stats = ["mean_rt", "mean_acc", "rt_q25", "rt_q50", "rt_q75"]
+
+    plot_data = data.copy()
+
+    fig, axes_arr = plt.subplots(1, 5, figsize=(15, 3))
+    axes = list(axes_arr)  # ensure a stable return type
+
+    for j, var in enumerate(stats):
+        x_col = f"{var}_emp"
+        y_col = f"{var}_resim"
+
+        sns.scatterplot(
+            data=plot_data,
+            x=x_col,
+            y=y_col,
+            hue="congruency",
+            hue_order=hue_order,
+            palette=palette,
+            alpha=0.8,
+            legend=False,
+            ax=axes[j],
+        )
+
+        if var != "mean_acc":
+            # Use empirical range for axis limits; handle all-NaN gracefully
+            x_min = plot_data[x_col].min(skipna=True)
+            x_max = plot_data[x_col].max(skipna=True)
+            if pd.isna(x_min) or pd.isna(x_max):
+                lims = [0.0, 1.0]
+            else:
+                lims = [float(x_min) - 0.02, float(x_max) + 0.02]
+        else:
+            lims = [0.6, 1.0]
+
+        axes[j].plot(lims, lims, color="black", linestyle="--", linewidth=1)
+        axes[j].set_xlim(lims)
+        axes[j].set_ylim(lims)
+
+        axes[j].set_xlabel("")
+        axes[j].set_ylabel("")
+        axes[j].set_title(titles[j], fontsize=fontsize - 5)
+
+    fig.supxlabel("Empirical", fontsize=fontsize - 5, y=0.0)
+    fig.supylabel("Resimulated", fontsize=fontsize - 5, x=0.0)
+    fig.tight_layout()
+
+    return fig, axes
+
+
+def make_strictly_increasing(
+    edges: Iterable[float],
+    eps: float = 1e-9
+) -> npt.NDArray[np.float64]:
+    """
+    Ensure a sequence of numeric values is strictly monotonically increasing.
+
+    This function enforces strict monotonicity by scanning the input array
+    from left to right and adjusting any non-increasing element so that it
+    exceeds its predecessor by at least `eps`. The adjustment is performed
+    in-place on a copied NumPy array, leaving the original input unchanged.
+
+    This utility is particularly useful when constructing bin edges for
+    histogramming or quantile-based discretization, where duplicate or
+    non-increasing edges can cause downstream numerical or categorical
+    binning errors.
+
+    Parameters
+    ----------
+    edges : Iterable[float]
+        A one-dimensional sequence of numeric values intended to represent
+        ordered boundaries (e.g., histogram bin edges). The input does not
+        need to be strictly increasing.
+    eps : float, optional
+        The minimum increment enforced between adjacent values when a
+        violation of strict monotonicity is detected. Default is 1e-9.
+
+    Returns
+    -------
+    numpy.ndarray
+        A one-dimensional NumPy array of dtype float64 with strictly
+        increasing values.
+
+    Notes
+    -----
+    - The function guarantees `edges[i] > edges[i-1]` for all `i > 0`.
+    - Adjustments are minimal and only applied when necessary.
+    - The magnitude of `eps` should be chosen with respect to the numerical
+      scale of `edges` to avoid unintended distortion.
+
+    Examples
+    --------
+    >>> make_strictly_increasing([0.0, 1.0, 1.0, 2.0])
+    array([0.0, 1.0, 1.000000001, 2.0])
+
+    >>> make_strictly_increasing([3, 2, 1])
+    array([3.0, 3.000000001, 3.000000002])
+    """
+    edges_array = np.asarray(edges, dtype=float).copy()
+
+    for k in range(1, len(edges_array)):
+        if edges_array[k] <= edges_array[k - 1]:
+            edges_array[k] = edges_array[k - 1] + eps
+
+    return edges_array
+
+
+def get_bin_edges(
+    rt: Iterable[float],
+    quantiles: npt.ArrayLike = np.linspace(0.1, 0.9, 9),
+) -> Optional[npt.NDArray[np.float64]]:
+    """
+    Construct strictly increasing quantile-based bin edges for response times.
+
+    This function computes empirical quantiles of the provided response time
+    (RT) sample and returns bin edges suitable for discretization (e.g.,
+    histogramming or multinomial likelihood construction). The returned edges
+    are bounded by negative and positive infinity to ensure full coverage of
+    the support.
+
+    Non-finite RT values (NaN, ±inf) are removed prior to quantile estimation.
+    If no finite observations remain, the function returns None.
+
+    To guard against numerical degeneracy (e.g., repeated quantiles due to ties),
+    the resulting edges are passed through `make_strictly_increasing`, ensuring
+    strict monotonicity.
+
+    Parameters
+    ----------
+    rt : Iterable[float]
+        One-dimensional sequence of response times. May contain non-finite
+        values, which will be removed prior to quantile computation.
+    quantiles : array-like, optional
+        Sequence of quantile probabilities in the interval [0, 1] used to
+        define internal bin boundaries. Default is nine equally spaced
+        quantiles from 0.1 to 0.9 (inclusive), yielding ten bins.
+
+    Returns
+    -------
+    numpy.ndarray or None
+        A one-dimensional NumPy array of strictly increasing bin edges
+        with the form:
+
+            [-inf, q1, q2, ..., qK, +inf]
+
+        where q1...qK are empirical quantiles of the finite RT values.
+
+        Returns None if no finite RT observations are available.
+
+    Notes
+    -----
+    - The number of resulting bins equals len(quantiles) + 1.
+    - Quantile-based binning yields approximately equal expected counts
+      per bin under the empirical distribution.
+    - Strict monotonicity is enforced to prevent downstream errors in
+      functions such as `pandas.cut` or histogram-based likelihood
+      computations.
+    - The function assumes `rt` represents a univariate distribution.
+
+    Examples
+    --------
+    >>> rt = [0.35, 0.42, 0.51, 0.60, 0.72]
+    >>> get_bin_edges(rt)
+    array([-inf, 0.392, 0.434, ..., 0.688, inf])
+
+    >>> get_bin_edges([np.nan, np.inf])
+    None
+    """
+    rt_array = np.asarray(rt, dtype=float)
+    rt_array = rt_array[np.isfinite(rt_array)]
+
+    if rt_array.size == 0:
+        return None
+
+    q = np.quantile(rt_array, quantiles)
+    edges = np.concatenate(([-np.inf], q, [np.inf]))
+
+    return make_strictly_increasing(edges)
+
+def count_bins(
+    data: pd.DataFrame,
+    bin_edges: Optional[npt.ArrayLike],
+    part: Union[int, str],
+    congruency: Hashable,
+    congruency_condition: Union[int, str],
+    accuracy: Hashable,
+    accuracy_condition: Union[int, str],
+    *,
+    id_name: Hashable = "id",
+    rt: Hashable = "rt",
+    n_bins: int = 10,
+) -> pd.DataFrame:
+    """
+    Bin response times and count observations per bin for a single participant × condition cell.
+
+    This helper constructs a complete RT-bin count table for a specific cell defined by
+    `(part, congruency_condition, accuracy_condition)`. It returns a DataFrame with exactly
+    `n_bins` rows (rt_bin = 0..n_bins-1) even when some bins contain zero observations.
+
+    The function is designed for quantile-binning workflows (e.g., multinomial likelihood /
+    G² deviance computations) where both observed and simulated data must be represented on
+    an identical set of RT bin edges.
+
+    Workflow:
+    1) Create a full "skeleton" DataFrame (`empty_df`) containing all bin indices for the
+       requested cell.
+    2) Filter non-finite RT values (NaN, ±inf).
+    3) Use `pandas.cut` to assign each RT to an integer bin index based on `bin_edges`.
+    4) Count observations in each bin via `groupby(...).count()`.
+    5) Left-merge counts into the skeleton and fill missing bins with zeros.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Trial-level data for (at least) one participant and one congruency × accuracy cell.
+        Must contain columns referenced by `id_name`, `congruency`, `accuracy`, and `rt`.
+    bin_edges : array-like or None
+        Bin edges to use for RT discretization. Typically produced by `get_bin_edges(...)`.
+        Must be strictly increasing and compatible with `pandas.cut`.
+        If None, or if `data` has zero rows, the function returns zero counts for all bins.
+    part : int or str
+        Participant identifier to populate in the returned count table. This value is written
+        into the `id_name` column for all returned rows.
+    congruency : Hashable
+        Column name in `data` which stores congruency labels (e.g., "congruent"/"incongruent").
+        Also used as the column name in the returned DataFrame.
+    congruency_condition : int or str
+        Condition value to populate in the returned congruency column for all rows (e.g.,
+        "congruent").
+    accuracy : Hashable
+        Column name in `data` which stores accuracy coding (e.g., 0/1).
+        Also used as the column name in the returned DataFrame.
+    accuracy_condition : int or str
+        Accuracy value to populate in the returned accuracy column for all rows (e.g., 1 for
+        correct, 0 for error).
+    id_name : Hashable, optional
+        Column name for participant IDs in `data` and in the returned DataFrame.
+        Default is "id".
+    rt : Hashable, optional
+        Column name in `data` containing response times to be binned. Default is "rt".
+    n_bins : int, optional
+        Number of RT bins expected (i.e., the number of intervals implied by `bin_edges`).
+        The returned DataFrame will contain exactly `n_bins` rows with `rt_bin = 0..n_bins-1`.
+        Default is 10.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame with columns `[id_name, congruency, accuracy, "rt_bin", "obs_count"]`
+        and exactly `n_bins` rows. `obs_count` is an integer count (may be returned as float
+        after merge/fill operations; cast if you need strict integer dtype).
+
+    Notes
+    -----
+    - RT values outside the interior edges are still assigned a bin because `bin_edges`
+      is typically bounded by [-inf, +inf].
+    - Trials whose RT cannot be binned (e.g., due to malformed edges) are dropped via
+      `dropna(subset=["rt_bin"])`.
+    - This function does not validate that `bin_edges` implies `n_bins`; ensure consistency
+      upstream (e.g., `n_bins = len(bin_edges) - 1`).
+
+    Examples
+    --------
+    >>> edges = get_bin_edges(obs_cell["rt"])  # [-inf, q1, ..., q9, inf]
+    >>> counts = count_bins(
+    ...     data=obs_cell,
+    ...     bin_edges=edges,
+    ...     part=12,
+    ...     congruency="congruency",
+    ...     congruency_condition="incongruent",
+    ...     accuracy="accuracy",
+    ...     accuracy_condition=1,
+    ...     n_bins=10,
+    ... )
+    >>> counts.head()
+       id    congruency  accuracy  rt_bin  obs_count
+    0  12  incongruent         1       0          3
+    1  12  incongruent         1       1          4
+    """
+    empty_df = pd.DataFrame(
+        {
+            id_name: part,
+            congruency: congruency_condition,
+            accuracy: accuracy_condition,
+            "rt_bin": range(n_bins),
+        }
+    )
+
+    if data.shape[0] == 0 or bin_edges is None:
+        empty_df["obs_count"] = 0
+        return empty_df
+
+    data = data.copy()
+    data = data[np.isfinite(data[rt])]
+
+    data["rt_bin"] = pd.cut(data[rt], bins=bin_edges, labels=False, include_lowest=True)
+    data = data.dropna(subset=["rt_bin"])
+    data["rt_bin"] = data["rt_bin"].astype(int)
+
+    count_data = (
+        data.groupby([id_name, congruency, accuracy, "rt_bin"])[rt]
+        .count()
+        .reset_index(name="obs_count")
+    )
+
+    return (
+        empty_df.merge(
+            count_data, on=[id_name, congruency, accuracy, "rt_bin"], how="left"
+        )
+        .fillna(0)
+    )
+
+def goodness_of_fit(
+    observed: npt.ArrayLike,
+    expected: npt.ArrayLike,
+    statistic: Literal["g2", "chi2", "both"] = "both",
+) -> float | tuple[float, float]:
+    """
+    Compute multinomial goodness-of-fit statistics (G² and/or Pearson χ²).
+
+    This function evaluates the discrepancy between observed counts (O_j)
+    and model-implied expected counts (E_j) using:
+
+        - Likelihood-ratio deviance (G²):
+            G² = 2 Σ O_j log(O_j / E_j)
+
+        - Pearson chi-square (χ²):
+            χ² = Σ (O_j − E_j)² / E_j
+
+    Both statistics are asymptotically chi-square distributed under
+    regularity conditions, with degrees of freedom equal to the number
+    of independent cells minus the number of fitted parameters.
+
+    Parameters
+    ----------
+    observed : array-like
+        One-dimensional array of non-negative observed counts (O_j).
+    expected : array-like
+        One-dimensional array of strictly positive expected counts (E_j).
+        Must have the same shape as `observed`.
+    statistic : {"g2", "chi2", "both"}, optional
+        Which statistic to return:
+            - "g2"   → return G² only 
+            - "chi2" → return Pearson χ² only
+            - "both" → return (G², χ²) (default)
+
+    Returns
+    -------
+    float or tuple of float
+        The requested goodness-of-fit statistic(s).
+        Returns np.inf if any E_j <= 0 where O_j > 0 (G² undefined)
+        or if any E_j <= 0 (χ² undefined).
+
+    Raises
+    ------
+    ValueError
+        If `observed` and `expected` differ in shape.
+
+    Notes
+    -----
+    - Cells with O_j = 0 contribute 0 to G².
+    - Pearson χ² includes all cells (including O_j = 0).
+    - No continuity correction is applied.
+    - Assumes multinomial count structure.
+
+    Examples
+    --------
+    >>> goodness_of_fit([10, 15, 5], [12, 12, 6], "g2")
+    1.527...
+
+    >>> goodness_of_fit([10, 15, 5], [12, 12, 6], "chi2")
+    1.583...
+
+    >>> goodness_of_fit([10, 15, 5], [12, 12, 6], "both")
+    (1.527..., 1.583...)
+    """
+    O = np.asarray(observed, dtype=float)
+    E = np.asarray(expected, dtype=float)
+
+    if O.shape != E.shape:
+        raise ValueError("`observed` and `expected` must have the same shape.")
+
+    if np.any(E <= 0):
+        return float(np.inf) if statistic != "both" else (float(np.inf), float(np.inf))
+
+    # --- G² ---
+    mask = O > 0
+    G2 = 2.0 * np.sum(O[mask] * np.log(O[mask] / E[mask]))
+
+    # --- Pearson χ² ---
+    chi2 = np.sum((O - E) ** 2 / E)
+
+    if statistic == "g2":
+        return float(G2)
+    elif statistic == "chi2":
+        return float(chi2)
+    elif statistic == "both":
+        return float(G2), float(chi2)
+    else:
+        raise ValueError("`statistic` must be one of {'g2', 'chi2', 'both'}.")
+
+def compute_gof(
+    data_obs: pd.DataFrame,
+    data_model: pd.DataFrame,
+    *,
+    rt: Hashable = "rt",
+    congruency: Hashable = "congruency",
+    accuracy: Hashable = "accuracy",
+    min_n_err: int = 5,
+    id_name: Hashable = "id",
+    n_bins: int = 10,
+    E_min: int = 1
+) -> npt.NDArray[np.float64]:
+    """
+    Compute cell-wise multinomial G² deviances between observed and model data.
+
+    This function evaluates model fit by comparing observed and simulated
+    response-time (RT) distributions within each participant × congruency ×
+    accuracy cell. RTs are discretized into quantile-based bins derived from
+    the observed data, and a multinomial likelihood-ratio deviance (G²) is
+    computed for each cell.
+
+    For each participant and each condition combination:
+
+        1. Empirical RT quantiles define bin edges.
+        2. Observed and simulated RTs are binned using identical edges.
+        3. Observed bin counts (O) are compared to model-implied expected
+           counts (E) derived from simulated counts using Dirichlet smoothing.
+        4. A G² deviance statistic is computed.
+
+    The function returns a vector of G² values across all evaluable cells.
+
+    Parameters
+    ----------
+    data_obs : pandas.DataFrame
+        Observed trial-level dataset. Must contain at least:
+        - participant identifier column (`id_name`)
+        - congruency column (`congruency`)
+        - accuracy column (`accuracy`)
+        - RT column (`rt`)
+    data_model : pandas.DataFrame
+        Model-generated (simulated) trial-level dataset with the same column
+        structure as `data_obs`.
+    rt : Hashable, optional
+        Column name for response times. Default is "rt".
+    congruency : Hashable, optional
+        Column name for congruency condition labels. Default is "congruency".
+    accuracy : Hashable, optional
+        Column name for accuracy coding (e.g., 0 = error, 1 = correct).
+        Default is "accuracy".
+    min_n_err : int, optional
+        Minimum number of observed error trials required to compute a
+        meaningful error RT distribution. Cells with fewer error trials
+        are skipped. Default is 5.
+    id_name : Hashable, optional
+        Column name identifying participants. Default is "id".
+    n_bins : int, optional
+        Number of RT bins (typically quantile-based). Must be consistent
+        with the output of `get_bin_edges`. Default is 10.
+    E_min : int
+        Minimum expected values in a bin. Is used to filter overestimated Chi² values. Default is 1.
+
+    Returns
+    -------
+    numpy.ndarray
+        One-dimensional array of G² deviance values (float64), one per
+        evaluable participant × congruency × accuracy cell.
+
+    Notes
+    -----
+    - Quantile bin edges are computed from observed RTs only.
+    - Model bin probabilities are estimated from simulated counts with
+      Dirichlet smoothing (α = 0.5).
+    - If the model produces zero simulated trials in a cell, the cell
+      is skipped rather than forcing infinite deviance.
+    - Cells with insufficient observed error trials (if accuracy == 0)
+      are skipped.
+    - The resulting G² values correspond to multinomial deviances on
+      binned RT distributions, not to the continuous-time diffusion
+      model likelihood.
+
+    Statistical Interpretation
+    --------------------------
+    For each cell, the deviance is:
+
+        G² = 2 * Σ O_j log(O_j / E_j),
+
+    where O_j are observed bin counts and E_j are expected counts implied
+    by the model. Under regularity conditions and large samples, G² is
+    asymptotically chi-square distributed.
+
+    Examples
+    --------
+    >>> g2_values = compute_g2(
+    ...     data_obs=empirical_df,
+    ...     data_model=simulated_df,
+    ...     n_bins=10
+    ... )
+    >>> g2_values.mean()
+    12.47
+    """
+    check_vars(data=data_obs, id_name=id_name, rt=rt,
+               congruency=congruency, accuracy=accuracy)
+    check_vars(data=data_model, id_name=id_name, rt=rt,
+               congruency=congruency, accuracy=accuracy)
+
+    data_obs = check_congruency(
+        data=data_obs,
+        rt=rt,
+        congruency=congruency,
+        output_coding_con="congruent",
+        output_coding_inc="incongruent",
+    )
+
+    data_model = check_congruency(
+        data=data_model,
+        rt=rt,
+        congruency=congruency,
+        output_coding_con="congruent",
+        output_coding_inc="incongruent",
+    )
+
+    parts = data_obs[id_name].unique()
+    rows = []
+
+    for idx in tqdm(range(0, len(parts)), desc=f"Compute Goodness of Fit"):
+        for con in ["congruent", "incongruent"]:
+            for acc in [0, 1]:
+
+                part = parts[idx]
+
+                obs_cell = data_obs[
+                    (data_obs[id_name] == part)
+                    & (data_obs[congruency] == con)
+                    & (data_obs[accuracy] == acc)
+                ].copy()
+
+                mod_cell = data_model[
+                    (data_model[id_name] == part)
+                    & (data_model[congruency] == con)
+                    & (data_model[accuracy] == acc)
+                ].copy()
+
+                if obs_cell.shape[0] == 0:
+                    continue
+
+                bin_edges = get_bin_edges(obs_cell[rt])
+
+                count_obs = count_bins(
+                    obs_cell,
+                    bin_edges,
+                    part,
+                    id_name=id_name,
+                    congruency=congruency,
+                    accuracy=accuracy,
+                    congruency_condition=con,
+                    accuracy_condition=acc,
+                    n_bins=n_bins,
+                )
+
+                count_mod = count_bins(
+                    mod_cell,
+                    bin_edges,
+                    part,
+                    id_name=id_name,
+                    congruency=congruency,
+                    accuracy=accuracy,
+                    congruency_condition=con,
+                    accuracy_condition=acc,
+                    n_bins=n_bins,
+                )
+
+                merged = (
+                    pd.merge(
+                        count_obs,
+                        count_mod,
+                        on=[id_name, congruency, accuracy, "rt_bin"],
+                        suffixes=["_obs", "_model"],
+                        how="outer",
+                    )
+                    .fillna(0)
+                )
+
+                O = merged["obs_count_obs"].to_numpy(dtype=float)
+                C = merged["obs_count_model"].to_numpy(dtype=float)
+
+                N_obs = O.sum()
+                N_sim = C.sum()
+
+                if acc == 0 and N_obs < min_n_err:
+                    continue
+
+                if N_sim == 0:
+                    continue
+
+                alpha = 0.5
+                J = len(C)
+
+                pi = (C + alpha) / (N_sim + J * alpha)
+                E = N_obs * pi
+
+                G2, chi2 = goodness_of_fit(O, E, statistic="both")
+
+                if np.min(E) < E_min:
+                    chi2 = np.nan
+
+                rows.append({
+                    str(id_name): part,
+                    str(congruency): con,
+                    str(accuracy): acc,
+                    "n_obs": float(N_obs),
+                    "n_sim": float(N_sim),
+                    "g2": float(G2),
+                    "chi2": float(chi2),
+                    "min_E": float(np.min(E)),
+                })
+
+    return pd.DataFrame(rows)
