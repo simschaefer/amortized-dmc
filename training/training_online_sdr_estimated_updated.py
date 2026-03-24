@@ -49,11 +49,6 @@ network_name = "dmc_optimized_updated_priors_sdr_estimated_" + str(epochs) + '_'
 
 print(network_name, flush=True)
 
-
-#A	tau	mu_c	mu_r	b	sd_r	participant	sampling_time
-#mean	20.487064	118.362138	0.571052	358.014712	61.003457	36.930012	4967.729730	18.617300
-#std	8.408001	37.602916	0.119613	24.267905	13.232774	8.608679	2823.744863	35.574207
-
 model_specs = {"simulation_settings": {"prior_means": np.array([20.49, 118.36, 0.57, 358.01, 61.0, 36.93]),
                                        "prior_sds": np.array([8.4, 37.6, 0.12, 24.27, 13.23, 8.6]),
                                        'sdr_fixed': None,
