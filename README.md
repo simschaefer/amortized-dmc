@@ -57,7 +57,7 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
 * [DMC data simulation](notebooks/dmc_introduction.ipynb)
 * [Hyperparameter optimization](notebooks/hyperparameter_optimization.ipynb)
 * [Application of pretrained networks on empirical data](notebooks/apply_pretrained_networks.ipynb)
-
+* [Posterior Predictive Checks](notebooks/posterior_predictive_checks.ipynb)
 
 ## 📁 Repository Structure
 
@@ -75,14 +75,6 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
 * **`model_specs/`**
 
   Stored information about training hyperparameters, network hyperparameters and simulator specifications used for the training of all networks. The names correspond with those of the pretrained networks.
-
-* **`notebooks/`**
-
-  Comprehensive examples for
-  
-  * Data simulation using the DMC simulator
-  * Running automated hyperparameter optimization using `optuna`
-  * Apply pretrained networks to empirical data
 
 * **`optuna_results/`**
 
