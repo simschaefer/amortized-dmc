@@ -9,41 +9,33 @@ if "KERAS_BACKEND" not in os.environ:
 
 import numpy as np
 import pickle
-import keras
-import seaborn as sns
-import matplotlib.pyplot as plt
+
 import bayesflow as bf
+import keras
+
 from dmc import DMC, dmc_helpers
 import pandas as pd
 from matplotlib.lines import Line2D
 
 arguments = sys.argv[1:]
 
-if 'executed_from_bash' in arguments:
-    network_name_fixed = str(arguments[0])
-    network_name_estimated = str(arguments[3])
-    host = str(arguments[1])
-    fixed_n_obs = int(arguments[2])
-    num_resims = int(arguments[6])
+# get parent directory:
+scripts_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(scripts_dir)
+# check parent directory (should be '.../amortized-dmc/')
+print(f'parent_dir: {parent_dir}', flush=True)
 
-else:
+network_names = [
+    'updated_priors_sdr_fixed',
+    'updated_priors_sdr_estimated',
+    'initial_priors_sdr_fixed',
+    'initial_priors_sdr_estimated',
+]
 
-    network_names = [
-        'updated_priors_sdr_fixed',
-        'updated_priors_sdr_estimated',
-        'initial_priors_sdr_fixed',
-        'initial_priors_sdr_estimated',
-    ]
+fixed_n_obs = 300
+num_resims = 100
+host = 'local'
 
-    fixed_n_obs = 300
-    num_resims = 100
-    host = 'local'
-
-
-if host == 'local':
-    parent_dir = os.path.dirname(os.getcwd())
-else:
-    parent_dir = os.getcwd()
 
 plot_name = 'prior_predictive_check'
 
@@ -66,9 +58,9 @@ narrow_data['congruency_num'] = ['congruent' if x == 0 else 'incongruent' for x 
 wide_data['congruency_num'] = ['congruent' if x == 0 else 'incongruent' for x in wide_data['congruency_num']]
     
 # compute stats for empirical data sets
-caf_data_emp, cdf_data_emp,  delta_data_emp = dmc_helpers.compute_stats(narrow_data, id_name='participant', congruency='congruency_num', n_rt_bins=5)
+caf_data_emp, cdf_data_emp, delta_data_emp = dmc_helpers.compute_stats(narrow_data, id_name='participant', congruency='congruency_num', n_rt_bins=5)
 
-# load model_specs
+# load model_specs and define simulators:
 
 simulators = {}
 
@@ -83,32 +75,36 @@ for i in range(0, len(network_names)):
 
     simulators[network_names[i]] = DMC(**model_specs['simulation_settings'])
 
-
+# variable names:
 id_name='participant'
 congruency_name='congruency_num'
-quantiles = np.arange(0.1, 1, 0.1)
-legend=True
-num_samples = 1000
 
+# quantiles for summary stats:
+quantiles = np.arange(0.1, 1, 0.1)
+rt_bins = 5
+legend=True
+
+# number of simulated data sets:
+num_data_sets = 1000
+
+# create two seperate plots for prior conditions (Figure 3)
 for priors in ['initial', 'updated']:
 
-    if priors == 'updated':
-        legend=False
-        ylim=(0,0.08)
-    else:
-        ylim=(0,0.18)
+    # re-simulated from prior model ESTIMATED SDR:
+    sim_data_estimated = simulators[priors + '_priors_sdr_estimated'].sample(num_data_sets)
 
-    sim_data_estimated = simulators[priors + '_priors_sdr_estimated'].sample(num_samples)
+    # re-simulated from prior model FIXED SDR:
+    sim_data_fixed = simulators[priors + '_priors_sdr_fixed'].sample(num_data_sets)
 
-    sim_data_fixed = simulators[priors + '_priors_sdr_fixed'].sample(num_samples)
-
+    # convert dictionaries to data frames:
     sim_data_estimated = dmc_helpers.format_sim_data(sim_data_estimated, congruency_coding=0)
 
     sim_data_fixed = dmc_helpers.format_sim_data(sim_data_fixed, congruency_coding=0)
 
-    caf_data_fixed, cdf_data_fixed,  delta_data_fixed = dmc_helpers.compute_stats(sim_data_fixed, id_name='id', congruency="congruency", n_rt_bins=5)
+    # compute summary stats for both models:
+    caf_data_fixed, cdf_data_fixed,  delta_data_fixed = dmc_helpers.compute_stats(sim_data_fixed, id_name='id', congruency="congruency", n_rt_bins=rt_bins)
 
-    caf_data_estimated, cdf_data_estimated,  delta_data_estimated = dmc_helpers.compute_stats(sim_data_estimated, id_name='id', congruency="congruency", n_rt_bins=5)
+    caf_data_estimated, cdf_data_estimated,  delta_data_estimated = dmc_helpers.compute_stats(sim_data_estimated, id_name='id', congruency="congruency", n_rt_bins=rt_bins)
 
     linewidth = 1.5
     fontsize=14
@@ -116,6 +112,14 @@ for priors in ['initial', 'updated']:
     fontsize_ticklabels=12
     fontsize_legend=12
 
+    # ylims for delta functions:
+    if priors == 'updated':
+        legend=False
+        ylim=(0,0.08)
+    else:
+        ylim=(0,0.18)
+
+    # plot for model with ESTIMATED SDR
     fig, axes = dmc_helpers.plot_fit(delta_data=delta_data_estimated,
                         delta_data_emp=delta_data_emp,
                         caf_data=caf_data_estimated,
@@ -132,6 +136,7 @@ for priors in ['initial', 'updated']:
                         fontsize_legend=fontsize_legend,
                         linewidth=linewidth)
 
+    # plot for model with FIXED SDR
     fig, axes = dmc_helpers.plot_fit(delta_data=delta_data_fixed,
                         delta_data_emp=delta_data_emp,
                         caf_data=caf_data_fixed,
@@ -143,18 +148,18 @@ for priors in ['initial', 'updated']:
                         congruency='congruency',
                         congruency_emp='congruency_num',
                         new_plot=False,
-                        fig=fig, 
-                        axes=axes,
+                        fig=fig, # build plot on previous plot
+                        axes=axes,  # build plot on previous plot
                         delta_ylim=ylim,
                         fontsize_axes=fontsize_axes,
                         fontsize_ticklabels=fontsize_ticklabels,
                         fontsize_legend=fontsize_legend,
-                        #palette_model={"congruent": '#FFBD00', "incongruent": '#9E0059'},
                         delta_linestyle_model=':',
                         caf_linestyle_model=':',
                         cdf_linestyle_model=':',
                         linewidth=linewidth)
     
+    # add model legend (only to the second plot):
     if priors == 'updated':
         custom_legend = [
             Line2D([0], [0], color="black", lw=1.5, linestyle="-", label="$\\text{sd}_r$ estimated"),
@@ -168,6 +173,7 @@ for priors in ['initial', 'updated']:
             fontsize=fontsize_legend,
             frameon=False
         )
-        
+    
+    # save plot
     #fig.savefig(parent_dir + '/plots/prior_predictive_check/prior_predictive_'+priors + '.png', dpi=600)
 

@@ -88,7 +88,6 @@ setwd(parent_dir)
 
 data_name <- 'initial_priors_sdr_estimated_500_trials_data'
 
-
 # load simulated data
 sim_data <- read_csv(str_c('data_complete/simulated_data/', data_name, '.csv'))
 
@@ -186,8 +185,8 @@ estimate_model_ids(
   lower = min_prms,
   upper = max_prms,
   fit_procedure_name = "flanker_data_estimated", # a label to identify the fits
-  fit_path = path, # to save fits in the working directory use getwd()
-  use_de_optim = TRUE, # overrule the default Differential Evolution setting # TRUE for differential evolution
+  fit_path = path, 
+  use_de_optim = TRUE, # TRUE for differential evolution
   use_nmkb = FALSE, # TRUE for Nelder Mead
   force_refit = TRUE,
   de_n_cores = 64,
@@ -208,12 +207,12 @@ params <- tibble(coef(data_fits)) %>%
   mutate(fitting_time_10ids = fitting_time)
 
 # create folder for fit data frames
-esimates_path <- 'data_complete/driftdm_estimates'
+estimates_path <- 'data_complete/driftdm_estimates'
 
-if (!dir.exists(esimates_path)) {
-    dir.create(esimates_path)}
+if (!dir.exists(estimates_path)) {
+    dir.create(estimates_path)}
 
 # save data frames
-write_csv(params, str_c(esimates_path, '/driftdm_estimates_',name,  '.csv'))
+write_csv(params, str_c(estimates_path, '/driftdm_estimates_',name,  '.csv'))
 
 

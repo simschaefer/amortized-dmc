@@ -5,9 +5,10 @@ sys.path.append("../")
 import os
 import torch 
 
-print("CUDA available:", torch.cuda.is_available(), flush=True)
-print(torch.cuda.device_count(), flush=True)
-print("Using device:", torch.cuda.get_device_name(0))
+# only execute if you want to run the script on a GPU:
+#print("CUDA available:", torch.cuda.is_available(), flush=True)
+#print(torch.cuda.device_count(), flush=True)
+#print("Using device:", torch.cuda.get_device_name(0))
 
 if "KERAS_BACKEND" not in os.environ:
     # set this to "torch", "tensorflow", or "jax"
@@ -15,15 +16,17 @@ if "KERAS_BACKEND" not in os.environ:
 
 import numpy as np
 import pickle
-
+import bayesflow as bf
 import keras
-
 import optuna
 
-import bayesflow as bf
+# get parent directory:
+scripts_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(scripts_dir)
+# check parent directory (should be '.../amortized-dmc/')
+print(f'parent_dir: {parent_dir}', flush=True)
 
-parent_dir = os.getcwd()
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+dmc_module_dir = parent_dir + '/amortized-dmc/dmc'
 
 # check directories (Cluster)
 print(f'parent_dir: {parent_dir}', flush=True)
@@ -37,7 +40,6 @@ network_name = "sdr_estimated_initial_50trials"
 n_trials = 50
 n_epochs = 50
 
-
 model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.71, 332.34, 98.36, 43.36]),
                                        "prior_sds": np.array([19.42, 40.08, 0.14, 52.07, 30.05, 9.19]),
                                        'sdr_fixed': None,
@@ -49,7 +51,7 @@ model_specs = {"simulation_settings": {"prior_means": np.array([70.8, 114.71, 0.
 print(model_specs, flush=True)
 
 # save model specs
-file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
+file_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 
 with open(file_path, 'wb') as file:
     pickle.dump(model_specs, file)
@@ -67,7 +69,7 @@ bf.adapters.Adapter()
 )
 
 
-training_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
+training_file_path = parent_dir + '/data/data_offline_training/data_offline_training_' + network_name + '.pickle'
 
 # simulate training data set
 
@@ -84,14 +86,13 @@ with open(training_file_path, 'rb') as file:
 
 val_data = simulator.sample(1000)
 
-val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
+val_file_path = parent_dir + '/data/data_offline_training/data_offline_training_' + network_name + '_validation.pickle'
 
 with open(val_file_path, 'wb') as file:
    pickle.dump(val_data, file)
 
 with open(val_file_path, 'rb') as file:
     val_data = pickle.load(file)
-
 
 def objective(trial, epochs=n_epochs):
 
@@ -115,7 +116,7 @@ def objective(trial, epochs=n_epochs):
         initial_learning_rate=initial_learning_rate,
         inference_network=inference_net,
         summary_network=summary_net,
-        checkpoint_filepath= parent_dir + '/bf_dmc/data/optuna_checkpoints',
+        checkpoint_filepath= parent_dir + '/data/optuna_checkpoints',
         checkpoint_name= f'network_{round(dropout, 2)}_{round(initial_learning_rate, 2)}_{num_seeds}_{batch_size}_{embed_dim}_{summary_dim}',
         inference_variables=["A", "tau", "mu_c", "mu_r", "b", 'sd_r'])
     
@@ -130,7 +131,7 @@ def objective(trial, epochs=n_epochs):
 
 study = optuna.create_study(direction="minimize")
 
-with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
+with open(parent_dir + '/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
     pickle.dump(study, file)
 
 study.optimize(objective, n_trials=n_trials)
@@ -139,12 +140,12 @@ trial = study.best_trial
 print("Outcome Metric: {}".format(trial.value))
 print("Best hyperparameters: {}".format(trial.params))
 
-with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
+with open(parent_dir + '/optuna_results/' + network_name + '_optuna_results.pickle', 'wb') as file:
     pickle.dump(study, file)
 
 print(f'Study saved successfully.')
 
-with open(parent_dir + '/bf_dmc/optuna_results/' + network_name + '_optuna_results.pickle', 'rb') as file:
+with open(parent_dir + '/optuna_results/' + network_name + '_optuna_results.pickle', 'rb') as file:
     study_reloaded = pickle.load(file)
 
 print(f'Study loaded successfully.')

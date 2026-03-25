@@ -1,11 +1,9 @@
 
 import sys
-
 sys.path.append("../../BayesFlow")
 sys.path.append("../")
 
 import os
-
 import torch 
 
 # only execute if you want to run the script on a GPU:
@@ -13,45 +11,42 @@ import torch
 #print(torch.cuda.device_count(), flush=True)
 #print("Using device:", torch.cuda.get_device_name(0))
 
-
 if "KERAS_BACKEND" not in os.environ:
     # set this to "torch", "tensorflow", or "jax"
     os.environ["KERAS_BACKEND"] = "torch"
 
 import numpy as np
 import pickle
-
 from datetime import datetime
-
 import bayesflow as bf
 import keras
 
-
 # arguments if passed by a slurm-script:
-#arguments = sys.argv[1:]
-#slurm_id = str(arguments[0])
-#epochs = int(arguments[1])
+# arguments = sys.argv[1:]
+# slurm_id = str(arguments[0])
+# epochs = int(arguments[1])
 
 # otherwise:
 epochs = 200
 slurm_id = 'local'
 
-parent_dir = os.getcwd()
+# get parent directory:
+scripts_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(scripts_dir)
+# check parent directory (should be '.../amortized-dmc/')
+print(f'parent_dir: {parent_dir}', flush=True)
 
 dmc_module_dir = parent_dir + '/amortized-dmc/dmc'
-
-
-print(f'parent_dir: {parent_dir}', flush=True)
 print(f'dmc_module_dir: {dmc_module_dir}')
 
 sys.path.append(dmc_module_dir)
 
-from dmc import DMC
+from dmc import DMC, dmc_helpers
 
 num_batches_per_epoch = 250
 
 #########
-network_name = "winsim_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
+network_name = "initial_priors_sdr_estimated_" + str(epochs) + '_' + slurm_id 
 ######### 
 
 print(network_name, flush=True)
@@ -129,28 +124,12 @@ history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_p
 
 file_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 
-def param_labels(param_names):
-
-    param_labels = []
-
-    for p in param_names:
-
-        suff = "$\\" if p in ["tau", "mu_c", "mu_r"] else "$"
-
-        param_labels.append(suff + p + "$")
-
-    if len(param_labels) <= 1:
-        param_labels = param_labels[0]
-        
-    return param_labels
 
 # plots diagnostics
-figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
-
+figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=dmc_helpers.param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 plots_dir = parent_dir + '/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
-
 
 for k, i in figs.items():
     figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_posttraining.png')
