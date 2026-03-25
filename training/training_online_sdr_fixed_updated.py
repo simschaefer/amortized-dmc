@@ -1,3 +1,4 @@
+
 import sys
 
 sys.path.append("../../BayesFlow")
@@ -7,9 +8,10 @@ import os
 
 import torch 
 
-print("CUDA available:", torch.cuda.is_available(), flush=True)
-print(torch.cuda.device_count(), flush=True)
-print("Using device:", torch.cuda.get_device_name(0))
+# only execute if you want to run the script on a GPU:
+#print("CUDA available:", torch.cuda.is_available(), flush=True)
+#print(torch.cuda.device_count(), flush=True)
+#print("Using device:", torch.cuda.get_device_name(0))
 
 
 if "KERAS_BACKEND" not in os.environ:
@@ -22,15 +24,21 @@ import pickle
 from datetime import datetime
 
 import bayesflow as bf
-
 import keras
+
+
+# arguments if passed by a slurm-script:
+#arguments = sys.argv[1:]
+#slurm_id = str(arguments[0])
+#epochs = int(arguments[1])
+
+# otherwise:
+epochs = 200
+slurm_id = 'local'
+
 parent_dir = os.getcwd()
 
-arguments = sys.argv[1:]
-slurm_id = str(arguments[0])
-epochs = int(arguments[1])
-
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+dmc_module_dir = parent_dir + '/amortized-dmc/dmc'
 
 print(f'parent_dir: {parent_dir}', flush=True)
 print(f'dmc_module_dir: {dmc_module_dir}')
@@ -46,8 +54,6 @@ network_name = "dmc_optimized_updated_priors_sdr_fixed_" + str(epochs) + '_' + s
 ######### 
 
 print(network_name, flush=True)
-
-
 
 model_specs = {"simulation_settings": {"prior_means": np.array([17.16, 152.76, 0.56, 297.49, 92.6]),
                                        "prior_sds": np.array([7.59, 36.26, 0.13, 21.49, 17.72 ]),
@@ -74,11 +80,6 @@ model_specs = {"simulation_settings": {"prior_means": np.array([17.16, 152.76, 0
 print(model_specs, flush=True)
 
 
-file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
-
-with open(file_path, 'wb') as file:
-    pickle.dump(model_specs, file)
-
 simulator = DMC(**model_specs['simulation_settings'])
 
 adapter = (
@@ -103,29 +104,18 @@ workflow = bf.BasicWorkflow(
     initial_learning_rate=model_specs["learning_rate"],
     inference_network=inference_net,
     summary_network=summary_net,
-    checkpoint_filepath=parent_dir + '/bf_dmc/data/training_checkpoints',
+    checkpoint_filepath=parent_dir + '/data/training_checkpoints',
     checkpoint_name=network_name,
     inference_variables=model_specs['simulation_settings']["param_names"],
     save_best_only=True
 )
 
-val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
-
 val_data = simulator.sample(200)
-
-with open(val_file_path, 'wb') as file:
-    pickle.dump(val_data, file)
-
-# with open(val_file_path, 'rb') as file:
-#     val_data = pickle.load(file)
-
-
-#_ = adapter(val_data, strict=True, stage="inference")
 
 
 history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
 
-file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
+file_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 
 model_specs['end_time'] = datetime.now()
 
@@ -155,7 +145,7 @@ def param_labels(param_names):
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 
-plots_dir = parent_dir + '/bf_dmc/plots/diagnostics/' + network_name
+plots_dir = parent_dir + '/plots/diagnostics/' + network_name
 os.makedirs(plots_dir, exist_ok=True)
 
 

@@ -8,9 +8,10 @@ import os
 
 import torch 
 
-print("CUDA available:", torch.cuda.is_available(), flush=True)
-print(torch.cuda.device_count(), flush=True)
-print("Using device:", torch.cuda.get_device_name(0))
+# only execute if you want to run the script on a GPU:
+#print("CUDA available:", torch.cuda.is_available(), flush=True)
+#print(torch.cuda.device_count(), flush=True)
+#print("Using device:", torch.cuda.get_device_name(0))
 
 
 if "KERAS_BACKEND" not in os.environ:
@@ -26,13 +27,18 @@ import bayesflow as bf
 import keras
 
 
-arguments = sys.argv[1:]
-slurm_id = str(arguments[0])
-epochs = int(arguments[1])
+# arguments if passed by a slurm-script:
+#arguments = sys.argv[1:]
+#slurm_id = str(arguments[0])
+#epochs = int(arguments[1])
 
-parent_dir = os.getcwd()
+# otherwise:
+epochs = 200
+slurm_id = 'local'
 
-dmc_module_dir = parent_dir + '/bf_dmc/dmc'
+parent_dir =  os.path.dirname(os.getcwd())
+
+dmc_module_dir = parent_dir + '/amortized-dmc/dmc'
 
 print(f'parent_dir: {parent_dir}', flush=True)
 print(f'dmc_module_dir: {dmc_module_dir}')
@@ -49,6 +55,7 @@ network_name = "dmc_optimized_updated_priors_sdr_estimated_" + str(epochs) + '_'
 
 print(network_name, flush=True)
 
+# model specification
 model_specs = {"simulation_settings": {"prior_means": np.array([20.49, 118.36, 0.57, 358.01, 61.0, 36.93]),
                                        "prior_sds": np.array([8.4, 37.6, 0.12, 24.27, 13.23, 8.6]),
                                        'sdr_fixed': None,
@@ -73,14 +80,16 @@ model_specs = {"simulation_settings": {"prior_means": np.array([20.49, 118.36, 0
 
 print(model_specs, flush=True)
 
-file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
+# save model specification
+file_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
 
 with open(file_path, 'wb') as file:
     pickle.dump(model_specs, file)
 
+# specify simulator
 simulator = DMC(**model_specs['simulation_settings'])
 
-
+# adapter converts simulated data into the correct format for the networks:
 adapter = (
     bf.adapters.Adapter()
     .convert_dtype("float64", "float32")
@@ -91,47 +100,30 @@ adapter = (
     .rename("num_obs", "inference_conditions")
 )
 
-
+# specify inference network
 inference_net = bf.networks.FlowMatching(coupling_kwargs=dict(subnet_kwargs=dict(dropout=model_specs["inference_network_settings"]["dropout"])))
 
+# specify summary network
 summary_net = bf.networks.SetTransformer(**model_specs['summary_network_settings'])
 
+# put everything together into a Workflow object
 workflow = bf.BasicWorkflow(
     simulator=simulator, 
     adapter=adapter,
     initial_learning_rate=model_specs["learning_rate"],
     inference_network=inference_net,
     summary_network=summary_net,
-    checkpoint_filepath=parent_dir + '/bf_dmc/data/training_checkpoints',
+    checkpoint_filepath=parent_dir + '/data/training_checkpoints',
     checkpoint_name=network_name,
     inference_variables=model_specs['simulation_settings']["param_names"],
     save_best_only=True
 )
 
-val_file_path = parent_dir + '/bf_dmc/data/data_offline_training/data_offline_validation_online_training_' + network_name + '.pickle'
-
+# simulate validation data set
 val_data = simulator.sample(200)
 
-with open(val_file_path, 'wb') as file:
-    pickle.dump(val_data, file)
-
-# with open(val_file_path, 'rb') as file:
-#     val_data = pickle.load(file)
-
-
-
+# start training:
 history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
-
-file_path = parent_dir + '/bf_dmc/model_specs/model_specs_' + network_name + '.pickle'
-
-model_specs['end_time'] = datetime.now()
-
-with open(file_path, 'wb') as file:
-    pickle.dump(model_specs, file)
-
-
-# approximator = keras.saving.load_model("../checkpoints/" + network_name)
-
 
 def param_labels(param_names):
 
@@ -148,13 +140,14 @@ def param_labels(param_names):
         
     return param_labels
 
-
+# plot diagnostics
 figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
 
 
-plots_dir = parent_dir + '/bf_dmc/plots/diagnostics/' + network_name
-os.makedirs(plots_dir, exist_ok=True)
+# and save them
+plots_dir = parent_dir + '/plots/diagnostics/' + network_name
 
+os.makedirs(plots_dir, exist_ok=True)
 
 for k, i in figs.items():
     figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_posttraining.png')
