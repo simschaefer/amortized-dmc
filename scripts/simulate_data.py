@@ -15,7 +15,7 @@ import time
 import os
 import keras
 import bayesflow as bf
-from dmc import dmc_helpers
+from dmc import dmc_helpers, DMC
 import pandas as pd
 
 parent_dir = os.path.dirname(os.getcwd())
@@ -23,7 +23,7 @@ parent_dir = os.path.dirname(os.getcwd())
 network_name = "updated_priors_sdr_estimated"
 
 # fixed number of trials (100, 200, 300, 400, 500):
-n_trials = 500
+n_trials = 300
 
 # load model specifications
 model_specs_path = parent_dir + '/model_specs/model_specs_' + network_name + '.pickle'
@@ -35,8 +35,10 @@ with open(model_specs_path, 'rb') as file:
 param_names = model_specs['simulation_settings']['param_names']
 
 # define simulator based on model specifications
-simulator, adapter, inference_net, summary_net, workflow = dmc_helpers.load_model_specs(model_specs, network_name)
 approximator = keras.saving.load_model(parent_dir + "/training_checkpoints/" + network_name + '.keras')
+
+# load simulator
+simulator = DMC(**model_specs['simulation_settings'])
 
 # fix number of trials
 simulator.fixed_num_obs = n_trials
@@ -104,5 +106,5 @@ if not os.path.exists(simulated_data_dir):
     os.makedirs(simulated_data_dir)
 
 df_samples_complete.to_csv(simulated_data_dir + network_name+ '_' + str(n_trials) + '_samples.csv')
-df_complete.to_csv(simulated_data_dir + network_name + '_' + str(n_trials) + '_trials_data.csv')
+#df_complete.to_csv(simulated_data_dir + network_name + '_' + str(n_trials) + '_trials_data.csv')
 

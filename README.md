@@ -57,7 +57,6 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
 * [DMC data simulation](notebooks/dmc_introduction.ipynb)
 * [Hyperparameter optimization](notebooks/hyperparameter_optimization.ipynb)
 * [In Silico Metrics](notebooks/in_silico_metrics.ipynb)
-* [Prior Updating](notebooks/prior_updating.ipynb)
 * [Application of pretrained networks on empirical data](notebooks/apply_pretrained_networks.ipynb)
 * [Posterior Predictive Checks](notebooks/posterior_predictive_checks.ipynb)
 * [Experimental Effects](notebooks/experimental_effects.ipynb)
@@ -84,7 +83,7 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
   
 * **`training/`**
 
-  Includes the scripts used in the **Training Phases** to train all four networks based on either initial or updated priors and either including or excluding trial-to-trial variability of the non-decision time.
+  Includes the scripts used in the **Training Phases** to train all four networks based on either initial or updated priors and either including or excluding trial-to-trial variability of the non-decision time. 
 
 * **`training_checkpoints/`**
 
@@ -97,8 +96,12 @@ To guide you through the key steps of our analyses, we provide comprehensive Jup
   * `dmc_optuna.py`: automated hyperparameter optimization
   * `simulate_data.py`: data simulation used in the **Benchmarking** Phase 
   * `drift_dm_fitting.R`: Parameter estimation for simulated data (`simulate_data.py`) using dRiftDM
+  * `empirical_estimates.py`: Estimates parameters on an individual level for each spacing condition. Resulting data is used in subsequent analyses.
   * `metrics_num_obs.py`: Computation of all in silico metrics for a varying number of trials between 50 and 1000.
   * `posterior_reliability.py`: Computes Split-Half correlation between individual parameter estimates for seven data sets.
+  * `prior_predictive_check.py`: Computes and plots prior predictive checks for the test data set.
+  * `prior_updating.py`: Updating prior distributions based on the train data set. 
+  * `posterior_predictive_check_data.py`: Computes re-simulations based on empirical estimates.
 
 cdf_data, cdf_data_emp,
 * **`plot_scripts/`**
@@ -112,6 +115,10 @@ cdf_data, cdf_data_emp,
   * **Application to Empirical Data** Phase:
     * `empirical_cdf_caf_delta_plot.ipynb`: Depiction of empirical data as CDF, CAF and Delta plots.
     * `reliability_comparison_plots.ipynb`: Plotting data from `scripts/posterior_reliability.py`.
+    * `experimental_effects.py`: Computes and plots standardized mean differences between spacing conditions. Based on the estimates computed by `scripts/empirical_estimates.py`
+    * `plots_metrics_num_obs.ipynb`: Plots the in silico metrics for simulated data by `metrics_num_obs.py`
+    * `posterior_predictive_checks.ipynb`: Plots model fit on an aggregated level between observed data an re-simulations computed by `scripts/posterior_predictive_check_data.py`.
+    * `posterior_predictive_checks_q_correlations.ipynb`: Plots model fit (Quantile, Mean Accuracy and Reaction Time Correlations) on an individual level between observed data an re-simulations computed by `scripts/posterior_predictive_check_data.py`.
 
   
 ## Helper functions
