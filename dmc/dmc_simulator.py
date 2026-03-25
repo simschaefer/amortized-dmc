@@ -278,16 +278,17 @@ class DMC:
         # random number of trials
         # num_obs = self.num_obs or np.random.randint(min_num_obs, max_num_obs+1)
         # sd_r fixed or sampeld from prior-function
-        sd_r = self.sdr_fixed or sd_r
+        sd_r = self.sdr_fixed if self.sdr_fixed is not None else sd_r
         
         # congruency conditions (equal split)
         obs_per_condition = int(np.ceil(num_obs / self.num_conditions))
         conditions = np.repeat(np.arange(self.num_conditions), obs_per_condition)
 
         # precompute vector of time steps and 2D-noise
-        t = np.linspace(start=self.dt, stop=self.tmax, num=int(self.tmax / self.dt))
+        t = np.arange(self.dt, self.tmax + self.dt, self.dt)
+        T = len(t)
 
-        noise = np.random.normal(size=(num_obs, self.tmax))
+        noise = np.random.normal(size=(num_obs, T))
         non_decision_ts = np.random.normal(size=num_obs, loc=mu_r, scale=sd_r)
         
         data = np.zeros((num_obs, 2))
