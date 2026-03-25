@@ -1153,7 +1153,7 @@ def compute_stats(
         delta_data,
         id_vars=[id_name, "quantile"],
         value_vars=["congruent", "incongruent"],
-        var_name="condition",
+        var_name=congruency,
         value_name=rt,
     )
 
@@ -1270,7 +1270,7 @@ def plot_stats(
     --------
     >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data, id_name="subject")
     """
-    mean_data = cdf_data.groupby(["quantile", "condition"])[rt].mean().reset_index()
+    mean_data = cdf_data.groupby(["quantile", congruency])[rt].mean().reset_index()
 
     fig, axes = plt.subplots(1, 3, figsize=(12, 3))
 
@@ -1287,14 +1287,14 @@ def plot_stats(
         cdf_data,
         x=rt,
         y="quantile",
-        hue="condition",
+        hue=congruency,
         style=id_name,
         legend=False,
         ax=axes[1],
         alpha=alpha,
     )
     # mean CDF
-    sns.lineplot(mean_data, x=rt, y="quantile", hue="condition", alpha=1, ax=axes[1])
+    sns.lineplot(mean_data, x=rt, y="quantile", hue=congruency, alpha=1, ax=axes[1])
 
     axes[1].set_title("CDF", fontsize=fontsize)
     axes[1].set_xlabel("RT[s]", fontsize=fontsize_axes)
@@ -1475,9 +1475,9 @@ def plot_fit(
         The three axes objects for CAF, CDF, and Δ-function, respectively.
     """
 
-    mean_data = cdf_data.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+    mean_data = cdf_data.groupby(['quantile', congruency])['rt'].mean().reset_index()
 
-    mean_data_emp = cdf_data_emp.groupby(['quantile', 'condition'])['rt'].mean().reset_index()
+    mean_data_emp = cdf_data_emp.groupby(['quantile', congruency_emp])['rt'].mean().reset_index()
 
     if new_plot:
         fig, axes = plt.subplots(1,3, figsize=(12,3))
@@ -1524,7 +1524,7 @@ def plot_fit(
                  linestyle=cdf_linestyle_model, 
                  x='rt', 
                  y='quantile', 
-                 hue='condition', 
+                 hue=congruency, 
                  alpha=1, 
                  ax=axes[1], 
                  legend=False, 
@@ -1538,7 +1538,7 @@ def plot_fit(
                  x='rt', 
                  y='quantile',
                  legend=False, 
-                 hue='condition', 
+                 hue=congruency_emp, 
                  alpha=1, 
                  ax=axes[1], 
                  hue_order=hue_order, 
