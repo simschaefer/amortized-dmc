@@ -344,7 +344,7 @@ class DMC:
 
         return dict(rt=data[:, 0], accuracy=data[:, 1], conditions=conditions, num_obs=num_obs)
 
-    def sample(self, batch_size, **kwargs) -> dict[str, np.ndarray]:
+    def sample(self, batch_size, num_obs: int | None = None, **kwargs) -> dict[str, np.ndarray]:
         """Runs simulated benchmark and returns `batch_size` parameter
         and observation batches
 
@@ -352,6 +352,8 @@ class DMC:
         ----------
         batch_shape: tuple
             Number of parameter-observation batches to simulate.
+        num_obs: int
+            Constant Number of observations in simulated data batch.
 
         Returns
         -------GHV-QI8
@@ -359,7 +361,11 @@ class DMC:
             with shapes (`batch_size`, ...)
         """
 
-        num_obs = self.fixed_num_obs or np.random.randint(self.min_num_obs, self.max_num_obs+1)
+        if num_obs is None:
+            if self.fixed_num_obs is not None:
+                num_obs = self.fixed_num_obs
+            else:
+                num_obs = np.random.randint(self.min_num_obs, self.max_num_obs + 1)
         
         if type(batch_size) == tuple:
             batch_size = batch_size[0]
