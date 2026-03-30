@@ -92,6 +92,11 @@ class DMC:
             raise ValueError(
                 f"prior_means and prior_sds must have the same length, got {n_means} and {n_sds}."
             )
+    
+        if n_means != len(param_names):
+            raise ValueError(
+                f"Expected {len(param_names)} prior entries to match param_names, got {n_means}."
+            )
 
         allowed_names = {'A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r'}
 
@@ -147,6 +152,9 @@ class DMC:
 
         if contamination_probability is not None and not (0 <= contamination_probability <= 1):
             raise ValueError("contamination_probability must be between 0 and 1.")
+    
+        if sdr_fixed is not None and sdr_fixed < 0:
+            raise ValueError("sdr_fixed must be >= 0.")
 
 
     def prior(self):
@@ -168,13 +176,7 @@ class DMC:
 
             p = np.random.normal(self.prior_means, self.prior_sds)
     
-        if self.sdr_fixed is not None:
-
-            return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3], b=p[4])
-
-        else:
-
-            return dict(A=p[0], tau=p[1], mu_c=p[2], mu_r=p[3],sd_r=p[-1], b=p[4])
+        return dict(zip(self.param_names, p))
 
 
     def trial(self, A: float, tau: float, mu_c: float, b: float, t: np.ndarray, noise: np.ndarray, non_decision_ts: np.ndarray):
