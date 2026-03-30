@@ -9,7 +9,7 @@ class DMC:
         prior_sds: np.ndarray,
         param_names: tuple[str] = ('A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r'),
         param_lower_bound: float | None = 0,
-        fixed_num_obs: float | None = 200,
+        fixed_num_obs: int | None = 200,
         tmax: int = 1200,
         dt: float = 1,
         sigma: float = 4.0,
@@ -85,49 +85,68 @@ class DMC:
         self.max_num_obs = max_num_obs
         self.sdr_fixed = sdr_fixed
 
-        if prior_means.shape[0] <= 4 or prior_sds.shape[0]<= 4:
+        n_means = prior_means.shape[0]
+        n_sds = prior_sds.shape[0]
 
-            raise ValueError(f"Only {prior_means.shape[0]} prior means and {prior_sds.shape[0]} prior sds are provided. Specify prior means and sds for each parameter.")
-        
-        if self.a_value <= 1:
+        if n_means != n_sds:
+            raise ValueError(
+                f"prior_means and prior_sds must have the same length, got {n_means} and {n_sds}."
+            )
 
-            raise ValueError(f"a (gamma shape) = {a_value}. Please choose a value larger than 1.")
-        
+        allowed_names = {'A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r'}
 
-        if prior_means.shape[0] != len(param_names):
+        # basic structure checks
+        if not isinstance(param_names, tuple):
+            raise TypeError("param_names must be a tuple of parameter names.")
 
-            raise ValueError(f'Number of prior means ({prior_means.shape[0]}) does not match the number of parameter names ({len(param_names)}).')
-        
+        if len(param_names) != len(set(param_names)):
+            raise ValueError(f"param_names contains duplicates: {param_names}")
 
-        if prior_sds.shape[0] != len(param_names):
+        if not set(param_names).issubset(allowed_names):
+            invalid = tuple(sorted(set(param_names) - allowed_names))
+            raise ValueError(
+                f"param_names contains invalid entries {invalid}. "
+                f"Allowed names are {tuple(sorted(allowed_names))}."
+            )
 
-            raise ValueError(f'Number of prior sds ({prior_means.shape[0]}) does not match the number of parameter names ({len(param_names)}).')
-        
-
+        # determine which names are required given sdr_fixed
         if self.sdr_fixed is None:
-            if self.prior_means.shape[0] <= 5 or self.prior_sds.shape[0] <= 5:
-                
-                raise ValueError("sdr_fixed = None but no prior parameters have been provided. choose a fixed value for sdr_foxed or specify prior_mean and prior_sds for sdr to include trial-to-trial variability of the non-decision time")
-            
+            required_names = {'A', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r'}
+        else:
+            required_names = {'A', 'tau', 'mu_c', 'mu_r', 'b'}
 
-        if self.sdr_fixed is not None:
-            if self.prior_means.shape[0] > 5 or self.prior_sds.shape[0] > 5:
+        if set(param_names) != required_names:
+            raise ValueError(
+                f"For sdr_fixed={self.sdr_fixed}, param_names must contain exactly "
+                f"{tuple(sorted(required_names))}. Got {param_names}."
+            )
 
-                warnings.warn(
-                        f"sdr_fixed = {self.sdr_fixed}, but six prior parameters were provided. "
-                        "The prior mean and standard deviation for sdr will be ignored, and the fixed value will be used instead. "
-                        "To simulate trial-to-trial variability, set sdr_fixed = None.",
-                        UserWarning
-                    )
-                
+        self.prior_means = prior_means
+        self.prior_sds = prior_sds
+
+        if self.a_value <= 1:
+            raise ValueError(f"a (gamma shape) = {a_value}. Please choose a value larger than 1.")
 
         if num_conditions != 2:
             raise ValueError("Number of conditions must be 2 for this experiment.")
         
-        if prior_means.shape[0] != prior_sds.shape[0]:
+        if np.any(prior_sds <= 0):
+            raise ValueError("All prior_sds must be strictly positive.")
 
-            raise ValueError("prior_mean and prior_sds do not have the same shape. Specify mean and sd for each parameter.")
-            
+        if dt <= 0:
+            raise ValueError("dt must be > 0.")
+
+        if tmax <= 0:
+            raise ValueError("tmax must be > 0.")
+
+        if fixed_num_obs is not None and fixed_num_obs <= 0:
+            raise ValueError("fixed_num_obs must be a positive integer or None.")
+
+        if min_num_obs <= 0 or max_num_obs <= 0 or min_num_obs > max_num_obs:
+            raise ValueError("Require 0 < min_num_obs <= max_num_obs.")
+
+        if contamination_probability is not None and not (0 <= contamination_probability <= 1):
+            raise ValueError("contamination_probability must be between 0 and 1.")
 
 
     def prior(self):
