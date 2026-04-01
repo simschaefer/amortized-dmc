@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
 import time
-import bayesflow as bf
-from dmc import DMC
-import copy
 import warnings
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -289,7 +286,7 @@ def fit_empirical_data(
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
 
-            # --- Your function call ---
+            # format empirical data for approximator
             part_data = format_empirical_data(
                 part_data,
                 rt=rt,
@@ -297,7 +294,7 @@ def fit_empirical_data(
                 congruency=congruency
             )
 
-            # --- If a warning occurred ---
+            # If a warning occurred 
             for w in caught:
                 tqdm.write(
                     f"[ID {id}] {w.category.__name__}: {w.message}"
@@ -461,68 +458,87 @@ def resim_data_id(
     lower_bound: float = 0
 ) -> pd.DataFrame:
     """
-    Resimulates data based on posterior parameter samples for a given participant.
+    Resimulate trial-level data for one participant or observational unit from
+    posterior parameter samples.
 
-    This function takes posterior samples, filters out invalid values (e.g., negatives), and uses 
-    them to generate synthetic datasets by repeatedly calling a simulator. It supports both fixed 
-    and variable `sd_r` scenarios depending on the simulator configuration.
+    This function takes posterior samples for a single unit, filters parameter
+    draws below a lower bound, randomly shuffles the remaining valid draws within
+    each parameter, and repeatedly calls ``simulator.experiment(...)`` to produce
+    posterior predictive datasets.
 
-    Parameters:
-    -----------
-    post_sample_data : pandas.DataFrame
-        A DataFrame containing posterior samples for model parameters. Each column should correspond 
-        to a parameter (e.g., "A", "tau", "mu_c", etc.).
+    For each resimulation, one value per parameter is taken from the filtered
+    sample arrays and passed to the simulator together with ``num_obs``. The
+    resulting trial-level simulated data are concatenated across resimulations and
+    annotated with a resimulation index (``num_resim``) and the supplied unit
+    identifier (``id_name``).
+
+    Parameters
+    ----------
+    post_sample_data : pandas.DataFrame or mapping of str to array-like
+        Posterior samples for a single participant or unit. Each parameter should
+        be stored under its own column/key. Typical parameter names are
+        ``"A"``, ``"tau"``, ``"mu_c"``, ``"mu_r"``, ``"b"``, and ``"sd_r"``.
+
+        If a pandas DataFrame is provided, columns are converted to a dictionary
+        internally. Values are expected to support ``.values`` and ``.shape``.
 
     num_obs : int
-        The number of observations (e.g., trials) to simulate for each resimulation. Typically matches 
-        the size of the empirical dataset.
+        Number of observations (for example, trials) to simulate for each
+        posterior predictive resimulation.
 
     simulator : object
-        A simulator object with an `experiment(...)` method that accepts the relevant parameters 
-        and returns simulated data in a tabular format (e.g., list of dicts or DataFrame-compatible structure). 
-        The object may also have an attribute `sdr_fixed` which controls whether `sd_r` is passed explicitly.
+        Simulator object providing an ``experiment(...)`` method. This method must
+        accept the parameters listed in ``param_names`` together with
+        ``num_obs=num_obs`` and return trial-level simulated data in a format that
+        can be converted to a pandas DataFrame.
 
     id : str or int
-        Specific id for whom the resimulations are being generated.
+        Identifier for the participant or observational unit for whom posterior
+        predictive data are generated.
 
-    num_resims : int, optional
-        The number of independent resimulation runs to perform. Default is 50.
+    id_name : str, default='id'
+        Name of the identifier column to be added to the returned resimulated
+        DataFrame.
 
-    param_names : list of str, optional
-        The list of parameter names to consider when filtering and passing values to the simulator. 
-        These should match the columns in `post_sample_data`. Default is ["A", "tau", "mu_c", "mu_r", "b"].
+    num_resims : int, default=50
+        Number of posterior predictive datasets to generate.
 
-    lower_bound : float
-        Values that fall below the specified value are excluded before resimulating data.
+    param_names : sequence of str, default=("A", "tau", "mu_c", "mu_r", "b", "sd_r")
+        Names of the parameters to extract from ``post_sample_data`` and pass to
+        the simulator.
 
-    Returns:
-    --------
-    pandas.DataFrame
-        A DataFrame containing all simulated trials across resimulations. Includes:
-        - Simulated trial data from the `simulator`
-        - A "num_resim" column indicating the resimulation index
-        - A "id" column identifying the source participant
+    lower_bound : float, default=0
+        Lower bound for valid posterior samples. Values strictly below this bound
+        are excluded before resimulation.
 
-    Notes:
-    ------
-    - Posterior samples with negative values are excluded before resimulation. The number of 
-      excluded samples is tracked but not returned; consider logging or returning `excluded_samples` if needed.
-    - The function assumes that enough valid (non-negative) samples are available to perform `num_resims`.
-    - If `simulator.sdr_fixed` is not `None`, `sd_r` will not be passed as a parameter.
+    Returns
+    -------
+    resim_complete : pandas.DataFrame
+        Trial-level simulated data concatenated across all resimulations. Includes
+        the simulator output columns plus:
 
+        - ``"num_resim"``: resimulation index from ``0`` to ``num_resims - 1``
+        - ``id_name``: the supplied unit identifier
+
+    n_excluded_samples : int
+        Total number of posterior samples excluded across all parameters listed in
+        ``param_names`` because they were below ``lower_bound``.
+
+    n_all_samples : int
+        Total number of posterior samples inspected across all parameters listed
+        in ``param_names`` before exclusion.
+
+    Notes
+    -----
+    - The function currently returns a 3-tuple:
+      ``(resim_complete, n_excluded_samples, n_all_samples)``.
     """
 
     # convert to dict (allow differing number of samples per parameter)
+    resim_samples = dict(post_sample_data)
 
-    if ~isinstance(post_sample_data, dict):
-        resim_samples = dict(post_sample_data)
-
-    # count excluded samples
-    excluded_samples = dict()
-
-    excluded_samples['num_samples'] = post_sample_data.shape[0]
-    excluded_samples[id_name] = id
-
+    n_excluded_samples = 0
+    n_all_samples = 0
 
     # exclude negative samples
     for k, dat in resim_samples.items():
@@ -531,7 +547,8 @@ def resim_data_id(
             np.random.shuffle(samples)
             resim_samples[k] = samples
 
-            excluded_samples[k] = dat.values[dat.values < 0].shape[0]
+            n_all_samples += dat.shape[0]
+            n_excluded_samples += dat.shape[0] - samples.shape[0]
 
     list_resim_dfs = []
 
@@ -551,7 +568,7 @@ def resim_data_id(
 
     resim_complete = pd.concat(list_resim_dfs)
 
-    return resim_complete
+    return resim_complete, n_excluded_samples, n_all_samples
 
 def resim_data(empirical_data: pd.DataFrame, 
                post_samples: pd.DataFrame,
@@ -652,27 +669,46 @@ def resim_data(empirical_data: pd.DataFrame,
 
     ids = empirical_data[id_name].unique()
 
-    lst_data = []
+    excluded_samples = 0
+    n_all_samples = 0
 
-    for i in tqdm(range(0, len(ids)), desc=f"Resimulate {num_resims} data sets per ID"):
-        
+    lst_data = []
+    pbar = tqdm(
+        range(len(ids)),
+        desc=f"Resimulate {num_resims} data sets per ID",delay=1.0)
+
+    for i in pbar:
         id = ids[i]
 
-        num_obs = empirical_data[(empirical_data[id_name] == id)].shape[0]
+        num_obs = empirical_data[empirical_data[id_name] == id].shape[0]
+        part_data_samples = post_samples[post_samples[id_name] == id]
 
-        part_data_samples = post_samples[post_samples[id_name]==id]
+        data_resimulated, n_excluded_samples_id, n_all_samples_id = resim_data_id(part_data_samples,
+                                                                                  num_obs=num_obs,
+                                                                                  num_resims=num_resims,
+                                                                                  simulator=simulator,
+                                                                                  id=id,
+                                                                                  param_names=param_names,
+                                                                                  lower_bound=lower_bound)
 
-        # resimulate data
-        data_resimulated = resim_data_id(part_data_samples, num_obs=num_obs, num_resims=num_resims, simulator=simulator, id=id, param_names=param_names, lower_bound=lower_bound)
-        
-        # exclude non-convergents
+        excluded_samples += n_excluded_samples_id 
+        n_all_samples += n_all_samples_id
+
         if exclude_nonconvergents:
             data_resimulated = data_resimulated[data_resimulated[rt] != -1]
 
-        # recode congruency
-        data_resimulated[congruency] = data_resimulated[simulator_congruency].map({simulator_congruency_coding: "congruent", simulator_incongruency_coding: "incongruent"})
+        data_resimulated[congruency] = data_resimulated[simulator_congruency].map(
+            {
+                simulator_congruency_coding: "congruent",
+                simulator_incongruency_coding: "incongruent",
+            }
+        )
 
         lst_data.append(data_resimulated)
+
+        percentage_excluded_samples = f'{np.round((excluded_samples/n_all_samples)*100, 3)}%'
+
+        pbar.set_description(f"Resimulate {num_resims} data sets per ID | Excluded Samples={percentage_excluded_samples}")
 
     return pd.concat(lst_data)
 
@@ -870,6 +906,9 @@ def smd_samples(
     
     fig, axes = plt.subplots(1, len(param_names), figsize=figsize, sharex=sharex)
 
+    if len(param_names) == 1:
+        axes = [axes]
+
     for p, ax in zip(param_names, axes):
 
         ax.set_xlim(x_lower, x_upper)
@@ -999,6 +1038,253 @@ def format_sim_data(
     return df_complete
 
 
+def compute_stats_ppc(
+    data: pd.DataFrame,
+    id_name: str = "id",
+    draw_name: Optional[str] = 'num_resim',
+    n_rt_bins: int = 5,
+    rt: str = "rt",
+    accuracy: str = "accuracy",
+    congruency: str = "congruency",
+    quantiles: Union[np.ndarray, Sequence[float]] = np.arange(0.1, 1.0, 0.1),
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    
+    """
+    Compute CAF, CDF-style quantile, and delta-function summaries for empirical
+    or posterior predictive check (PPC) data.
+
+    If ``draw_name`` is None, the function returns participant-level summaries.
+
+    If ``draw_name`` is provided, the function first computes participant-level
+    summaries within each draw and then averages these summaries across
+    participants *within draw*, yielding one summary curve per draw. This is the
+    appropriate structure for posterior predictive checks.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Trial-level data. Required columns are:
+
+        - ``id_name``: participant or unit identifier
+        - ``rt``: reaction time
+        - ``accuracy``: accuracy indicator (1 = correct, 0 = incorrect)
+        - ``congruency``: condition label
+
+        If ``draw_name`` is not None, the column named by ``draw_name`` must also
+        be present and identify PPC draws / resimulations.
+
+    id_name : str, default='id'
+        Column name identifying participants or independent units.
+
+    draw_name : str or None, default='num_resim'
+        Column name identifying PPC draws / resimulations. If provided, summaries
+        are computed within each draw and then aggregated across participants
+        within draw. If None, participant-level summaries are returned directly.
+
+    n_rt_bins : int, default=5
+        Number of quantile-based RT bins used for CAF computation. RT bins are
+        computed separately within each grouping cell:
+
+        - ``id_name × congruency`` if ``draw_name`` is None
+        - ``draw_name × id_name × congruency`` if ``draw_name`` is provided
+
+    rt : str, default='rt'
+        Column name containing reaction times.
+
+    accuracy : str, default='accuracy'
+        Column name containing accuracy values (1 = correct, 0 = incorrect).
+
+    congruency : str, default='congruency'
+        Column name indicating congruency condition.
+
+    quantiles : array-like, default=np.arange(0.1, 1.0, 0.1)
+        Quantile levels used to compute RT quantiles for CDF-style and delta
+        summaries. Quantiles are computed using correct trials only
+        (``accuracy == 1``).
+
+    Returns
+    -------
+    caf_data : pandas.DataFrame
+        CAF summaries.
+
+        If ``draw_name`` is None:
+            Participant-level CAF summaries with columns including
+            ``id_name``, ``congruency``, ``rt_bin``, and ``accuracy``.
+
+        If ``draw_name`` is provided:
+            Draw-level CAF summaries averaged across participants within draw, with
+            columns including ``draw_name``, ``congruency``, ``rt_bin``, and
+            ``accuracy``.
+
+    cdf_data : pandas.DataFrame
+        Long-format CDF-style quantile summaries.
+
+        If ``draw_name`` is None:
+            Participant-level quantile summaries with columns including
+            ``id_name``, ``quantile``, ``congruency``, and ``rt``.
+
+        If ``draw_name`` is provided:
+            Draw-level quantile summaries averaged across participants within draw,
+            with columns including ``draw_name``, ``congruency``, ``quantile``,
+            and ``rt``.
+
+    delta_data : pandas.DataFrame
+        Delta-function summaries derived from correct-trial quantiles.
+
+        If ``draw_name`` is None:
+            Participant-level delta summaries with columns including
+            ``id_name``, ``quantile``, ``congruent``, ``incongruent``, ``delta``,
+            and ``mean_qu``.
+
+        If ``draw_name`` is provided:
+            Draw-level delta summaries averaged across participants within draw,
+            with columns including ``draw_name``, ``quantile``, ``congruent``,
+            ``incongruent``, ``delta``, and ``mean_qu``.
+
+    Raises
+    ------
+    KeyError
+        If one or more required columns are missing from ``data``.
+
+    ValueError
+        If the congruency recoding does not produce the expected levels
+        ``'congruent'`` and ``'incongruent'`` after pivoting, or if RT binning via
+        ``pandas.qcut`` cannot be computed.
+
+    Notes
+    -----
+    - CDF-style summaries and delta functions are computed from correct trials only.
+    - CAF summaries are computed from all trials.
+    - RT bins for CAFs are formed within grouping cells using
+    ``pandas.qcut(..., duplicates="drop")``; therefore, some groups may yield
+    fewer than ``n_rt_bins`` bins if too many duplicate RT values are present.
+    """
+
+    required = [id_name, rt, accuracy, congruency]
+    if draw_name is not None:
+        required.append(draw_name)
+
+    missing = [col for col in required if col not in data.columns]
+    if missing:
+        raise KeyError(f"Missing required columns: {missing}")
+
+    df = data.copy()
+
+    if "check_congruency" in globals():
+        df = check_congruency(
+            data=df,
+            rt=rt,
+            congruency=congruency,
+            output_coding_con="congruent",
+            output_coding_inc="incongruent",
+        )
+
+    df[rt] = pd.to_numeric(df[rt], errors="coerce")
+    df = df.dropna(subset=[rt, accuracy, congruency, id_name])
+
+    group_base = [id_name, congruency]
+    if draw_name is not None:
+        group_base = [draw_name] + group_base
+
+    # ------------------------------------------------------------
+    # 1) DELTA / CDF: participant-level within draw
+    # ------------------------------------------------------------
+    correct_df = df[df[accuracy] == 1].copy()
+
+    delta_subject = (
+        correct_df.groupby(group_base, observed=False)[rt]
+        .quantile(quantiles)
+        .reset_index()
+    )
+
+    quantile_col = delta_subject.columns[-2]
+    delta_subject = delta_subject.rename(columns={quantile_col: "quantile"})
+
+    delta_subject = (
+        delta_subject.pivot(
+            index=([draw_name] if draw_name is not None else []) + [id_name, "quantile"],
+            columns=congruency,
+            values=rt,
+        )
+        .reset_index()
+    )
+
+    expected_cols = {"congruent", "incongruent"}
+    if not expected_cols.issubset(delta_subject.columns):
+        raise ValueError(
+            f"Expected congruency levels {expected_cols}, but got "
+            f"{set(delta_subject.columns)} after pivot."
+        )
+
+    delta_subject = delta_subject.assign(
+        delta=lambda x: x["incongruent"] - x["congruent"],
+        mean_qu=lambda x: (x["incongruent"] + x["congruent"]) / 2,
+    )
+
+    cdf_subject = pd.melt(
+        delta_subject,
+        id_vars=([draw_name] if draw_name is not None else []) + [id_name, "quantile"],
+        value_vars=["congruent", "incongruent"],
+        var_name=congruency,
+        value_name=rt,
+    )
+
+    # ------------------------------------------------------------
+    # 2) CAF: participant-level within draw
+    # ------------------------------------------------------------
+
+    try:
+        df["rt_bin"] = (
+            df.groupby(group_base, observed=False)[rt]
+            .transform(lambda x: pd.qcut(x, q=n_rt_bins, labels=False, duplicates="drop"))
+        )
+
+        df = df.dropna(subset=["rt_bin"]).copy()
+        df["rt_bin"] = df["rt_bin"].astype(int)
+        
+    except ValueError as e:
+        raise ValueError(f"Could not compute RT bins with qcut: {e}") from e
+
+    caf_subject = (
+        df.groupby(group_base + ["rt_bin"], observed=False)[accuracy]
+        .mean()
+        .reset_index()
+    )
+
+    # ------------------------------------------------------------
+    # 3) If no draw column: return participant-level summaries
+    # ------------------------------------------------------------
+    if draw_name is None:
+        return caf_subject, cdf_subject, delta_subject
+
+    # ------------------------------------------------------------
+    # 4) PPC aggregation:
+    #    average across participants within draw
+    # ------------------------------------------------------------
+    caf_data = (
+        caf_subject.groupby([draw_name, congruency, "rt_bin"], observed=False)[accuracy]
+        .mean()
+        .reset_index()
+    )
+
+    cdf_data = (
+        cdf_subject.groupby([draw_name, congruency, "quantile"], observed=False)[rt]
+        .mean()
+        .reset_index()
+    )
+
+    delta_data = (
+        delta_subject.groupby([draw_name, "quantile"], observed=False)[
+            ["congruent", "incongruent", "delta", "mean_qu"]
+        ]
+        .mean()
+        .reset_index()
+        .sort_values([draw_name, "mean_qu"])
+    )
+
+    return caf_data, cdf_data, delta_data
+
+
 def compute_stats(
     data: pd.DataFrame,
     id_name: str = "id",
@@ -1009,143 +1295,166 @@ def compute_stats(
     quantiles: Union[np.ndarray, Sequence[float]] = np.arange(0.1, 1.0, 0.1),
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Compute distributional summary statistics for reaction-time (RT) data, producing
-    inputs suitable for CAF, CDF, and Δ-function plots.
+    Compute distributional summary statistics for reaction-time (RT) data,
+    producing inputs suitable for CAF, CDF-style quantile, and Δ-function plots.
 
     This function derives three DataFrames:
 
-    1. **Δ-function data (`delta_data`)**:
-       Quantiles of RT computed *only on correct trials* (``accuracy == 1``) for each
-       ``id_name`` × ``congruency`` group, then pivoted to wide format with
-       separate columns per congruency level (expected: ``'congruent'`` and
-       ``'incongruent'``). It additionally computes:
+    1. **CAF data (`caf_data`)**:
+    Mean accuracy per RT bin, stratified by ``id_name × congruency × rt_bin``.
+    RT bins are computed separately within each ``id_name × congruency`` group
+    using quantile-based binning.
 
-       - ``delta = incongruent - congruent``
-       - ``mean_qu = (incongruent + congruent) / 2``
+    2. **CDF data (`cdf_data`)**:
+    Long-format representation of correct-trial RT quantiles from `delta_data`,
+    with columns ``[id_name, quantile, congruency, rt]`` suitable for plotting
+    CDF-style quantile curves.
 
-    2. **CAF data (`caf_data`)**:
-       Mean accuracy per RT bin (quantile bins over ``rt``), stratified by
-       ``id_name`` × ``congruency`` × ``rt_bin``.
+    3. **Δ-function data (`delta_data`)**:
+    Quantiles of RT computed *only on correct trials* (``accuracy == 1``) for each
+    ``id_name × congruency`` group, then pivoted to wide format with separate
+    columns per congruency level (expected: ``'congruent'`` and ``'incongruent'``).
+    It additionally computes:
 
-    3. **CDF data (`cdf_data`)**:
-       Long-format representation of the wide quantile RTs from `delta_data`, with
-       columns ``[id_name, quantile, condition, rt]`` suitable for CDF plotting.
+    - ``delta = incongruent - congruent``
+    - ``mean_qu = (incongruent + congruent) / 2``
 
     Parameters
     ----------
     data : pandas.DataFrame
         Trial-level (long-format) data containing RTs and accuracy. Required columns:
 
-        - ``'rt'`` : float
+        - ``rt`` : float
             Reaction time (typically seconds).
-        - ``'accuracy'`` : int | bool | float
+        - ``accuracy`` : int | bool | float
             Trial accuracy indicator. Trials with ``accuracy == 1`` are treated as
-            correct for Δ-function quantiles.
-        - ``{id_name}`` : hashable (e.g., int | str)
+            correct for Δ-function and CDF quantiles.
+        - ``id_name`` : hashable
             Identifier for subject/session/batch.
-        - ``{congruency}`` : str-like / categorical
+        - ``congruency`` : str-like / categorical
             Congruency label. The Δ-function computation assumes that the pivot will
             yield columns named ``'congruent'`` and ``'incongruent'``.
 
-        Notes
-        -----
-        The function adds/overwrites a column ``'rt_bin'`` in ``df_complete`` (in-place)
-        computed via ``pandas.qcut``.
-
     id_name : str, default='id'
         Column name identifying independent units (e.g., participant, session, batch).
+
+    n_rt_bins : int, default=5
+        Number of quantile bins used to discretize RTs for the CAF computation
+        within each ``id_name × congruency`` group.
+
+    rt : str, default='rt'
+        Column name of the reaction time variable.
+
+    accuracy : str, default='accuracy'
+        Column name of the accuracy variable (1 = correct, 0 = incorrect).
 
     congruency : str, default='congruency'
         Column name indicating congruency condition. For downstream computations,
         the values are expected to include levels that pivot to columns named
         ``'congruent'`` and ``'incongruent'``.
 
-    n_rt_bins : int, default=5
-        Number of quantile bins used to discretize RTs for the CAF computation.
-        Implemented with ``pandas.qcut`` (approximately equal-sized bins).
-
-    rt : str, default='rt'
-        Variable name of the reaction time variable.
-    
-    accuracy : str, default='accuracy'
-        Variable name of the accuracy (1 = correct response, 0 = incorrect response)
-
     quantiles : numpy.ndarray or Sequence[float], default=np.arange(0.1, 1.0, 0.1)
-        Quantile levels at which to compute RT quantiles for correct trials. Values
-        should lie in the open interval (0, 1].
+        Quantile levels at which to compute RT quantiles for correct trials.
 
     Returns
     -------
     caf_data : pandas.DataFrame
         DataFrame containing conditional accuracy values per RT bin. Expected columns:
 
-        - ``{id_name}``
-        - ``{congruency}``
-        - ``'rt_bin'`` : int
-        - ``'accuracy'`` : float
+        - ``id_name``
+        - ``congruency``
+        - ``rt_bin`` : int
+        - ``accuracy`` : float
 
     cdf_data : pandas.DataFrame
-        Long-format CDF-ready DataFrame with columns:
+        Long-format DataFrame containing correct-trial RT quantiles. Expected columns:
 
-        - ``{id_name}``
-        - ``'quantile'`` : float
-        - ``'condition'`` : str
-        - ``'rt'`` : float
+        - ``id_name``
+        - ``quantile`` : float
+        - ``congruency`` : str
+        - ``rt`` : float
 
     delta_data : pandas.DataFrame
         Wide-format DataFrame with per-``id_name`` quantiles for each congruency level,
         plus derived columns ``delta`` and ``mean_qu``. Expected columns include:
 
-        - ``{id_name}``
-        - ``'quantile'`` : float
-        - ``'congruent'`` : float
-        - ``'incongruent'`` : float
-        - ``'delta'`` : float
-        - ``'mean_qu'`` : float
+        - ``id_name``
+        - ``quantile`` : float
+        - ``congruent`` : float
+        - ``incongruent`` : float
+        - ``delta`` : float
+        - ``mean_qu`` : float
 
     Raises
     ------
     KeyError
         If required columns are missing from ``data``.
-    ValueError
-        If ``pandas.qcut`` fails (e.g., due to too many duplicate RT values causing
-        non-unique bin edges), or if the required congruency levels do not produce
-        ``'congruent'`` and ``'incongruent'`` columns after pivoting.
 
-    Examples
-    --------
-    >>> caf_data, cdf_data, delta_data = compute_stats(data, id_name="subject_id")
-    >>> # Pass outputs to plotting utilities
-    >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data, id_name="subject_id")
+    ValueError
+        If the required congruency levels do not produce ``'congruent'`` and
+        ``'incongruent'`` columns after pivoting.
+
+    Notes
+    -----
+    The function operates on copies of the input data and does not modify the
+    original DataFrame in-place.
+
+    RT bins for CAF computation are formed separately within each
+    ``id_name × congruency`` group using ``pandas.qcut(..., duplicates="drop")``.
+    As a result, some groups may yield fewer than ``n_rt_bins`` bins when too many
+    duplicate RT values are present.
     """
 
     check_vars(data=data, rt=rt, accuracy=accuracy, congruency=congruency, id_name=id_name)
+
+    data = data.copy()
+    data[rt] = pd.to_numeric(data[rt], errors="coerce")
+    data = data.dropna(subset=[id_name, congruency, rt, accuracy]).copy()
 
     data = check_congruency(data=data, rt=rt, congruency=congruency, output_coding_con='congruent', output_coding_inc='incongruent')
 
     data[rt] = pd.to_numeric(data[rt], errors="coerce")
 
     delta_data = (
-        data[data[accuracy] == 1]
-        .groupby([id_name, congruency])[rt]
-        .quantile(quantiles)
+    data.loc[data[accuracy] == 1]
+    .groupby([id_name, congruency])[rt]
+    .quantile(quantiles)
+    .reset_index()
+    )
+
+    quantile_col = [c for c in delta_data.columns if c not in [id_name, congruency, rt]][0]
+    delta_data = delta_data.rename(columns={quantile_col: "quantile"})
+
+    delta_data = (
+        delta_data
+        .pivot(index=[id_name, "quantile"], columns=congruency, values=rt)
         .reset_index()
-        .rename(columns={"level_2": "quantile"})
-        .pivot(index=[id_name, "quantile"], columns=[congruency], values=rt)
-        .reset_index()
-        .assign(delta=lambda df: df["incongruent"] - df["congruent"])
-        .assign(mean_qu=lambda df: (df["incongruent"] + df["congruent"]) / 2)
+    )
+
+    expected_cols = {"congruent", "incongruent"}
+    if not expected_cols.issubset(delta_data.columns):
+        raise ValueError(
+            f"Expected congruency levels {expected_cols}, got {set(delta_data.columns)}"
+        )
+
+    delta_data = delta_data.assign(
+        delta=lambda df: df["incongruent"] - df["congruent"],
+        mean_qu=lambda df: (df["incongruent"] + df["congruent"]) / 2,
     )
 
     df = data.copy()
 
-    df["rt_bin"] = pd.qcut(df[rt], q=n_rt_bins, labels=False)
+    df["rt_bin"] = (
+        df.groupby([id_name, congruency])[rt]
+        .transform(lambda x: pd.qcut(x, q=n_rt_bins, labels=False, duplicates="drop"))
+    )
+
+    df = df.dropna(subset=["rt_bin"]).copy()
+    df["rt_bin"] = df["rt_bin"].astype(int)
 
     caf_data = (
-        df.groupby([id_name, congruency, "rt_bin"])[accuracy]
+        df.groupby([id_name, congruency, "rt_bin"], observed=False)[accuracy]
         .mean()
-        .reset_index()
-        .rename(columns={"level_2": "quantile"})
         .reset_index()
     )
 
@@ -1164,194 +1473,357 @@ def plot_stats(
     caf_data: pd.DataFrame,
     cdf_data: pd.DataFrame,
     delta_data: pd.DataFrame,
-    alpha: float = 0.05,
     id_name: str = "id",
+    rt: str = 'rt',
     congruency: str = "congruency",
-    rt : str = 'rt',
-    n_delta_bins: int = 10,
-    fontsize: int = 24,
-    fontsize_axes: int = 15,
+    individual_deltas: bool = False,
+    individual_cafs: bool = False,
+    individual_cdfs: bool = False,
     delta_ylim: Optional[Tuple[float, float]] = None,
     delta_xlim: Optional[Tuple[float, float]] = None,
-) -> Tuple[Figure, Sequence[Axes]]:
+    cdf_xlim: Optional[Tuple[float, float]] = None,
+    fontsize: int = 14,
+    fontsize_axes: int = 14,
+    fontsize_ticklabels: int = 10,
+    fontsize_legend: int = 12,
+    legend: bool = True,
+    new_plot: bool = True,
+    hue_order: Sequence[str] = ("congruent", "incongruent"),
+    palette: Mapping[str, str] = {"congruent": "#132a70", "incongruent": "#FF6361"},
+    linewidth: float = 0.75,
+    fig: Optional[Figure] = None,
+    axes: Optional[Sequence[Axes]] = None,
+    individual_alpha: float = 0.1,
+    individual_linewidth: float = 0.25,
+    linestyle: str = "--",
+    marker: str = "o",
+    markersize: float = 5,
+    markeredgecolor: str = "none"
+    ):
+
     """
-    Plot three standard distributional diagnostics for reaction-time (RT) data:
-    (1) conditional accuracy function (CAF), (2) cumulative distribution function (CDF),
-    and (3) a delta-function summary of condition differences across the RT distribution.
+    Plot CAF, CDF-style quantile curves, and Δ-function in a 1×3 layout.
 
-    The function creates a single figure with three subplots arranged horizontally:
+    This function visualizes three standard distributional summaries commonly used
+    in conflict-task analyses:
 
-    1. **CAF**: Accuracy as a function of binned RT (``rt_bin``), stratified by
-       ``congruency``.
-    2. **CDF**: Empirical CDFs (quantile vs. RT) for each ``condition``. Individual
-       trajectories are shown per ``id_name`` (faint lines) and an overlaid mean CDF
-       is shown per ``condition``.
-    3. **Δ-function**: Condition difference (``delta``) as a function of mean RT quantile
-       (``mean_qu``). Individual trajectories are shown per ``id_name`` (very faint)
-       with an aggregated (mean-by-quantile) curve overlaid.
+    1. **CAF (Conditional Accuracy Function)**:
+       Mean accuracy as a function of RT bin, separated by congruency condition.
+
+    2. **CDF-style quantile plot**:
+       Mean RT quantiles as a function of cumulative probability, separated by
+       congruency condition. 
+
+    3. **Δ-function**:
+       Difference between incongruent and congruent RT quantiles as a function of
+       the mean RT at each quantile.
+
+    Optionally, participant-level ("individual") curves can be overlaid for each
+    panel, allowing visualization of variability across units (e.g., subjects).
 
     Parameters
     ----------
-    delta_data : pandas.DataFrame
-        Long-format data required for the Δ-function panel. Must contain at least:
-
-        - ``'quantile'``: Quantile index/label (used for aggregation).
-        - ``'mean_qu'``: Mean RT associated with each quantile (x-axis of Δ-function).
-        - ``'delta'``: Difference metric to plot (y-axis of Δ-function).
-        - A column named by ``id_name``: Identifier for individual trajectories.
-
-        Notes
-        -----
-        The function will add a temporary column ``'mean_qu_bins'`` via ``pd.cut``.
-        (It is overwritten if already present.)
-
     caf_data : pandas.DataFrame
-        Data for the CAF panel. Must codf_longntain at least:
+        DataFrame containing CAF summaries. Expected columns include:
 
-        - ``'rt_bin'``: RT bin index/label (x-axis of CAF).
-        - ``'accuracy'``: Accuracy per bin (y-axis of CAF).
-        - A column named by ``congruency``: Grouping variable for CAF lines.
+        - ``"rt_bin"`` : RT bin index
+        - ``"accuracy"`` : mean accuracy per bin
+        - ``congruency`` : condition label
+        - ``id_name`` : identifier (if individual CAFs are plotted)
 
     cdf_data : pandas.DataFrame
-        Long-format data for the CDF panel. Must contain at least:
+        Long-format DataFrame containing RT quantile summaries. Expected columns:
 
-        - ``'rt'``: Reaction times in seconds (x-axis of CDF).
-        - ``'quantile'``: CDF quantiles (y-axis of CDF).
-        - ``'condition'``: Condition label for grouping/colouring.
-        - A column named by ``id_name``: Identifier for individual trajectories.
+        - ``"quantile"`` : cumulative probability
+        - ``rt`` : RT values
+        - ``congruency`` : condition label
+        - ``id_name`` : identifier (if individual CDFs are plotted)
 
-    alpha : float, default=0.05
-        Opacity for individual CDF trajectories (panel 2). The mean CDF is plotted with
-        opacity 1.0.
+    delta_data : pandas.DataFrame
+        DataFrame containing Δ-function summaries. Expected columns include:
 
-    id_name : str, default='id'
-        Column name used as an identifier for individual trajectories in the CDF and
-        Δ-function panels.
+        - ``"quantile"``
+        - ``"mean_qu"`` : mean RT across conditions at each quantile
+        - ``"delta"`` : incongruent minus congruent RT difference
+        - ``id_name`` : identifier (if individual Δ-functions are plotted)
 
-    congruency : str, default='congruency'
-        Column name used to stratify the CAF panel.
+    id_name : str, optional
+        Column name identifying participants or independent units
+        (default: ``"id"``).
 
-    rt: str, default='rt'
-        Columns name of the reaction time variable.
+    rt : str, optional
+        Column name for RT values in ``cdf_data`` (default: ``"rt"``).
 
-    n_delta_bins : int, default=10
-        Number of bins used when discretizing ``delta_data['mean_qu']`` into
-        ``'mean_qu_bins'``. (The function currently computes a binned summary, but then
-        replaces it with a mean-by-quantile aggregation for plotting.)
+    congruency : str, optional
+        Column name indicating congruency condition (default: ``"congruency"``).
 
-    fontsize : int, default=24
-        Font size for subplot titles.
+    individual_deltas : bool, optional
+        If True, overlay participant-level Δ-functions (default: False).
 
-    fontsize_axes : int, default=20
-        Font size for axis labels.
+    individual_cafs : bool, optional
+        If True, overlay participant-level CAF curves (default: False).
 
-    delta_ylim : tuple[float, float] | None, default=None
-        If provided (truthy), apply a fixed y-axis range to the Δ-function panel.
+    individual_cdfs : bool, optional
+        If True, overlay participant-level CDF-style curves (default: False).
 
-    delta_xlim : tuple[float, float] | None, default=None
-        If provided (truthy), apply a fixed x-axis range to the Δ-function panel.
+    delta_ylim : tuple of float, optional
+        Y-axis limits for the Δ-function subplot.
+
+    delta_xlim : tuple of float, optional
+        X-axis limits for the Δ-function subplot.
+
+    cdf_xlim : tuple of float, optional
+        X-axis limits for the CDF subplot.
+
+    fontsize : int, optional
+        Font size for subplot titles (default: 14).
+
+    fontsize_axes : int, optional
+        Font size for axis labels (default: 14).
+
+    fontsize_ticklabels : int, optional
+        Font size for tick labels (default: 10).
+
+    fontsize_legend : int, optional
+        Font size for the legend (default: 12).
+
+    legend : bool, optional
+        If True, display a legend in the CAF panel (default: True).
+
+    new_plot : bool, optional
+        If True, create a new figure. If False, draw into provided ``fig`` and
+        ``axes`` (default: True).
+
+    hue_order : sequence of str, optional
+        Order of condition levels for plotting
+        (default: ``("congruent", "incongruent")``).
+
+    palette : Mapping[str, str], optional
+        Color mapping for conditions
+        (default: ``{"congruent": "#132a70", "incongruent": "#FF6361"}``).
+
+    linewidth : float, optional
+        Line width for aggregated curves (default: 0.75).
+
+    fig : matplotlib.figure.Figure, optional
+        Existing figure to draw into if ``new_plot`` is False.
+
+    axes : sequence of matplotlib.axes.Axes, optional
+        Existing axes (length 3) to draw into if ``new_plot`` is False.
+
+    individual_alpha : float, optional
+        Alpha value for participant-level curves (default: 0.1).
+
+    individual_linewidth : float, optional
+        Line width for participant-level curves (default: 0.25).
+
+    linestyle : str, optional
+        Line style for aggregated curves (default: ``"--"``).
+
+    marker : str, optional
+        Marker style for aggregated curves (default: ``"o"``).
+
+    markersize : float, optional
+        Marker size (default: 5).
+
+    markeredgecolor : str, optional
+        Marker edge color (default: ``"none"``).
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        The created matplotlib figure.
+        The resulting figure.
 
-    axes : numpy.ndarray of matplotlib.axes.Axes
-        Array of axes in the order ``[CAF, CDF, Δ-function]``.
-
-    Notes
-    -----
-    - This function assumes that ``matplotlib.pyplot`` is imported as ``plt``,
-      ``seaborn`` as ``sns``, and ``pandas`` as ``pd`` in the calling scope.
-    - The Δ-function panel uses very low opacity (``alpha=0.05``) for individual
-      trajectories to emphasize the aggregated curve.
+    axes : sequence of matplotlib.axes.Axes
+        The axes for the CAF, CDF-style quantile plot, and Δ-function.
 
     Examples
     --------
-    >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data, id_name="subject")
+    >>> fig, axes = plot_stats(caf_data, cdf_data, delta_data)
+
+    >>> fig, axes = plot_stats(
+    ...     caf_data,
+    ...     cdf_data,
+    ...     delta_data,
+    ...     individual_cafs=True,
+    ...     individual_cdfs=True,
+    ...     individual_deltas=True,
+    ...     cdf_xlim=(0.25, 1.0),
+    ...     delta_xlim=(0.3, 1.0),
+    ...     delta_ylim=(-0.1, 0.2),
+    ... )
     """
-    mean_data = cdf_data.groupby(["quantile", congruency])[rt].mean().reset_index()
 
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3))
 
+    mean_data_emp = (
+        cdf_data.groupby(["quantile", congruency], observed=False)["rt"]
+        .mean()
+        .reset_index()
+    )
+
+    if new_plot or fig is None or axes is None:
+        fig, axes = plt.subplots(1, 3, figsize=(12, 3))
+
+    # -------------------------
     # CAF
-    sns.lineplot(caf_data, x="rt_bin", y="accuracy", hue=congruency, ax=axes[0])
+    # -------------------------
 
+    if individual_cafs:
+        sns.lineplot(
+            data=caf_data,
+            x="rt_bin",
+            y="accuracy",
+            hue=congruency,
+            estimator=None,
+            units=id_name,
+            ax=axes[0],
+            hue_order=hue_order,
+            palette=palette,
+            linestyle='--',
+            alpha=individual_alpha,
+            markeredgecolor=markeredgecolor,
+            errorbar=None,
+            linewidth=individual_linewidth,
+            legend=None,
+        )
+
+    sns.lineplot(
+        data=caf_data,
+        x="rt_bin",
+        y="accuracy",
+        hue=congruency,
+        ax=axes[0],
+        hue_order=hue_order,
+        palette=palette,
+        linestyle=linestyle,
+        marker=marker,
+        markersize=markersize,
+        markeredgecolor=markeredgecolor,
+        errorbar=None,
+        linewidth=linewidth,
+        legend=legend,
+    )
+
+    axes[0].set_ylim(0, 1)
     axes[0].set_title("CAF", fontsize=fontsize)
     axes[0].set_ylabel("CAF", fontsize=fontsize_axes)
     axes[0].set_xlabel("Bins", fontsize=fontsize_axes)
-    axes[0].legend(title="", loc="lower right")
 
-    # single CDF
+    # -------------------------
+    # CDF
+    # -------------------------
+    if individual_cdfs:
+
+        sns.lineplot(
+            data=cdf_data,
+            x=rt,
+            y="quantile",
+            hue=congruency,
+            ax=axes[1],
+            hue_order=hue_order,
+            estimator=None,
+            units=id_name,
+            palette=palette,
+            linestyle='--',
+            alpha=individual_alpha,
+            markeredgecolor=markeredgecolor,
+            linewidth=individual_linewidth,
+            legend=False,
+        )
+
     sns.lineplot(
-        cdf_data,
+        data=mean_data_emp,
         x=rt,
         y="quantile",
         hue=congruency,
-        style=id_name,
-        legend=False,
         ax=axes[1],
-        alpha=alpha,
+        hue_order=hue_order,
+        palette=palette,
+        linestyle=linestyle,
+        marker=marker,
+        markersize=markersize,
+        markeredgecolor=markeredgecolor,
+        linewidth=linewidth,
+        legend=False,
     )
-    # mean CDF
-    sns.lineplot(mean_data, x=rt, y="quantile", hue=congruency, alpha=1, ax=axes[1])
 
     axes[1].set_title("CDF", fontsize=fontsize)
+    axes[1].set_ylabel("Cumulative Density", fontsize=fontsize_axes)
     axes[1].set_xlabel("RT[s]", fontsize=fontsize_axes)
-    axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
-    axes[1].get_legend().remove()
 
-    delta_data["mean_qu_bins"] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
-    delta_bins = delta_data.groupby("mean_qu_bins", observed=False)["delta"].mean().reset_index()
-    delta_bins["bin_mid"] = delta_bins["mean_qu_bins"].apply(lambda x: x.mid)
-
-    delta_bins = (
-        delta_data.groupby("quantile")[["mean_qu", "delta"]]
-        .mean()
+    # -------------------------
+    # Delta
+    # -------------------------
+    delta_bins_emp = (
+        delta_data.groupby("quantile", observed=False)[["mean_qu", "delta"]]
+        .agg(
+            mean_qu=("mean_qu", "mean"),
+            delta=("delta", "mean"),
+            sd_delta=("delta", "std"),
+        )
         .reset_index()
         .sort_values("mean_qu")
     )
 
-    # single Deltas
-    sns.lineplot(
-        delta_data,
-        linewidth=0.5,
-        linestyle="--",
-        marker="o",
-        x="mean_qu",
-        y="delta",
-        hue=id_name,
-        legend=False,
-        ax=axes[2],
-        alpha=alpha,
-    )
+    if individual_deltas:
+        sns.lineplot(
+            data=delta_data,
+            x="mean_qu",
+            y="delta",
+            hue=id_name,
+            ax=axes[2],
+            linewidth=individual_linewidth,
+            alpha=individual_alpha,
+            legend=False,
+        )
 
-    # aggregated Deltas
     sns.lineplot(
-        delta_bins,
-        linewidth=0.5,
-        linestyle="--",
-        marker="o",
+        data=delta_bins_emp,
         x="mean_qu",
         y="delta",
-        legend=False,
         ax=axes[2],
         color="black",
+        linestyle=linestyle,
+        marker=marker,
+        markersize=markersize,
+        markeredgecolor=markeredgecolor,
+        linewidth=linewidth,
+        legend=False,
     )
 
-    axes[2].set_ylabel("$\\Delta$", fontsize=fontsize_axes)
+    axes[2].set_ylabel(r"$\Delta$", fontsize=fontsize_axes)
     axes[2].set_xlabel("RT[s]", fontsize=fontsize_axes)
-    axes[2].set_title("$\\Delta$-Function", fontsize=fontsize)
+    axes[2].set_title(r"$\Delta$-Function", fontsize=fontsize)
+
+    # -------------------------
+    # Limits
+    # -------------------------
+    if cdf_xlim is not None:
+        axes[1].set_xlim(cdf_xlim)
 
     if delta_ylim is not None:
-        axes[2].set(ylim=delta_ylim)
+        axes[2].set_ylim(delta_ylim)
+
     if delta_xlim is not None:
-        axes[2].set(xlim=delta_xlim)
+        axes[2].set_xlim(delta_xlim)
+
+    # -------------------------
+    # Legend + ticks
+    # -------------------------
+    if legend:
+        axes[0].legend(
+            title="",
+            loc="lower right",
+            fontsize=fontsize_legend,
+            frameon=False,
+        )
+
+    for ax in axes:
+        ax.tick_params(axis="x", labelsize=fontsize_ticklabels)
+        ax.tick_params(axis="y", labelsize=fontsize_ticklabels)
 
     fig.tight_layout()
-
     return fig, axes
-
 
 
 def plot_fit(
@@ -1382,7 +1854,10 @@ def plot_fit(
     cdf_linestyle_model: str = "-",
     linewidth: float = 0.5,
     fig: Optional[Figure] = None,
-    axes: Optional[Sequence[Axes]] = None):
+    axes: Optional[Sequence[Axes]] = None,
+    alpha: float = 0.05,
+    plot_individual_deltas: bool = False,
+    id_individual: str = 'id'):
     """
     Plot model and empirical CAFs, CDFs, and Δ-function in a 1×3 subplot layout.
 
@@ -1581,9 +2056,26 @@ def plot_fit(
     sns.lineplot(delta_bins,linewidth=linewidth, linestyle=delta_linestyle_model, x='mean_qu', y='delta', legend=False, ax=axes[2], color='black')
     sns.lineplot(delta_bins_emp,linewidth=linewidth,linestyle='--',marker="o",  x='mean_qu', y='delta', legend=False, ax=axes[2], color='black')
     
-    axes[2].set_ylabel('$\Delta$', fontsize=fontsize_axes)
+
+    if plot_individual_deltas:
+        # single Deltas
+        sns.lineplot(
+            delta_data,
+            linewidth=0.5,
+            #linestyle="--",
+            #marker="o",
+            x="mean_qu",
+            y="delta",
+            hue=id_individual,
+            legend=False,
+            ax=axes[2],
+            alpha=alpha,
+        )
+
+
+    axes[2].set_ylabel(r'$\Delta$', fontsize=fontsize_axes)
     axes[2].set_xlabel('RT[s]', fontsize=fontsize_axes)
-    axes[2].set_title('$\Delta$-Function', fontsize=fontsize)
+    axes[2].set_title(r'$\Delta$-Function', fontsize=fontsize)
     
     if cdf_xlim is not None:
         axes[2].set(xlim=cdf_xlim)
@@ -1604,7 +2096,1045 @@ def plot_fit(
     fig.tight_layout()
 
     return fig, axes
-   
+
+
+
+def plot_fit_ppc(
+    caf_data: pd.DataFrame,
+    cdf_data: pd.DataFrame,
+    delta_data: pd.DataFrame,
+    caf_data_emp: pd.DataFrame,
+    cdf_data_emp: pd.DataFrame,
+    delta_data_emp: pd.DataFrame,
+    show_draws_caf: bool = True,
+    caf_draws_errorbar: Optional[Tuple[str, float]] = None,
+    show_draws_cdf: bool = True,
+    show_draws_delta: bool = True,
+    show_draws_mean: bool = False,
+    draw_name: str = 'num_resim',
+    congruency: str = "congruency",
+    congruency_emp: str = "congruency",
+    n_delta_bins: int = 10,
+    delta_ylim: Optional[Tuple[float, float]] = None,
+    delta_xlim: Optional[Tuple[float, float]] = None,
+    cdf_xlim: Optional[Tuple[float, float]] = None,
+    caf_ylim: Optional[Tuple[float, float]] = None,
+    fontsize: int = 14,
+    fontsize_axes: int = 16,
+    fontsize_ticklabels: int = 10,
+    fontsize_legend: int = 12,
+    legend: bool = True,
+    new_plot: bool = True,
+    hue_order: Sequence[str] = ("congruent", "incongruent"),
+    palette_emp: Mapping[str, str] = {"congruent": "#132a70", "incongruent": "#FF6361"},
+    palette_model: Mapping[str, str] = {"congruent": "#132a70", "incongruent": "#FF6361"},
+    delta_linestyle_model: str = "-",
+    caf_linestyle_model: str = "-",
+    cdf_linestyle_model: str = "-",
+    empirical_marker: str = 'o',
+    empirical_linestyle: str = '--',
+    draw_linewidth: float = 0.5,
+    empirical_linewidth: float = 0.5,
+    fig: Optional[Figure] = None,
+    axes: Optional[Sequence[Axes]] = None,
+    draw_alpha: float = 0.05,
+    mean_linewidth: float = 1,
+    markeredgecolor: str ="none",
+    markersize: float = 5):
+    """
+    Plot posterior predictive checks (PPC) for CAF, CDF-style quantile curves,
+    and Δ-functions in a 1×3 subplot layout.
+
+    This function compares model-generated summaries (e.g., posterior predictive
+    draws or simulation-based summaries) against empirical data. It visualizes:
+
+    1. **CAF (Conditional Accuracy Function)**:
+    Accuracy as a function of RT bins, separated by congruency.
+
+    2. **CDF-style quantile plot**:
+    Vincentized RT quantiles (mean RT per quantile) as a function of cumulative
+    probability, separated by congruency.
+
+    3. **Δ-function**:
+    Difference between incongruent and congruent RT quantiles as a function of
+    the mean RT at each quantile.
+
+    Model predictions can be displayed as:
+    - **draw-wise curves**: individual posterior predictive draws shown as
+    semi-transparent lines
+    - **aggregated mean curves**: averages across draws
+
+    Empirical data are overlaid as stylized line-and-marker plots.
+
+    Parameters
+    ----------
+    caf_data : pandas.DataFrame
+        Model CAF data. Expected columns include:
+
+        - ``"rt_bin"``
+        - ``"accuracy"``
+        - a congruency column specified by ``congruency``
+        - a draw identifier column specified by ``draw_name`` when
+        ``show_draws_caf=True``
+
+    cdf_data : pandas.DataFrame
+        Model CDF-style quantile data in long format. Expected columns include:
+
+        - ``"quantile"``
+        - ``"rt"``
+        - a congruency column specified by ``congruency``
+        - a draw identifier column specified by ``draw_name`` when
+        ``show_draws_cdf=True``
+
+    delta_data : pandas.DataFrame
+        Model delta-function data. Expected columns include:
+
+        - ``"quantile"``
+        - ``"mean_qu"``
+        - ``"delta"``
+        - a draw identifier column specified by ``draw_name`` when
+        ``show_draws_delta=True``
+
+    caf_data_emp : pandas.DataFrame
+        Empirical CAF data. Expected columns include:
+
+        - ``"rt_bin"``
+        - ``"accuracy"``
+        - a congruency column specified by ``congruency_emp``
+
+    cdf_data_emp : pandas.DataFrame
+        Empirical CDF-style quantile data. Expected columns include:
+
+        - ``"quantile"``
+        - ``"rt"``
+        - a congruency column specified by ``congruency_emp``
+
+    delta_data_emp : pandas.DataFrame
+        Empirical delta-function data. Expected columns include:
+
+        - ``"quantile"``
+        - ``"mean_qu"``
+        - ``"delta"``
+
+    show_draws_caf : bool, optional
+        If True, plot individual posterior predictive draws for the CAF panel as
+        semi-transparent lines. Each line corresponds to one simulated draw.
+        Default is True.
+
+    ccaf_draws_errorbar : tuple | str | callable, optional
+        Error bar specification passed to ``seaborn.lineplot`` for the CAF panel
+        when plotting aggregated model predictions (i.e., when ``include_mean=True``).
+
+        This follows seaborn’s ``errorbar`` API and can be:
+
+        - ``("pi", 95)`` for a 95% percentile interval (default choice for PPC-style uncertainty)
+        - ``"ci"`` or ``("ci", level)`` for confidence intervals
+        - ``"se"`` or ``"sd"`` for standard error or standard deviation
+
+    show_draws_cdf : bool, optional
+        If True, plot individual posterior predictive draws for the CDF-style
+        quantile panel as semi-transparent lines. Each line corresponds to one
+        simulated draw. Default is True.
+
+    show_draws_delta : bool, optional
+        If True, plot individual posterior predictive draws for the Δ-function
+        panel as semi-transparent lines. Each line corresponds to one simulated
+        draw. Default is True.
+
+    show_draws_mean : bool, optional
+        If True, overlay mean model predictions aggregated across draws
+        (default: False).
+
+    draw_name : str, optional
+        Column name identifying posterior predictive draws or resimulations
+        (default: ``"num_resim"``).
+
+    congruency : str, optional
+        Column name for congruency in model data (default: ``"congruency"``).
+
+    congruency_emp : str, optional
+        Column name for congruency in empirical data (default: ``"congruency"``).
+
+    n_delta_bins : int, optional
+        Number of bins for intermediate delta summaries. Currently retained for
+        compatibility; the plotted delta summaries are aggregated by quantile.
+
+    delta_ylim : tuple of float, optional
+        Y-axis limits for the Δ-function subplot.
+
+    delta_xlim : tuple of float, optional
+        X-axis limits for the Δ-function subplot.
+
+    cdf_xlim : tuple of float, optional
+        X-axis limits for the CDF subplot.
+
+    caf_ylim : tuple of float, optional
+        Y-axis limits for the CAF subplot.
+
+    fontsize : int, optional
+        Font size for subplot titles (default: 14).
+
+    fontsize_axes : int, optional
+        Font size for axis labels (default: 14).
+
+    fontsize_ticklabels : int, optional
+        Font size for tick labels (default: 10).
+
+    fontsize_legend : int, optional
+        Font size for the legend (default: 12).
+
+    legend : bool, optional
+        Whether to display a legend (default: True).
+
+    new_plot : bool, optional
+        If True, create a new figure. Otherwise, draw into the provided ``fig`` and
+        ``axes`` (default: True).
+
+    hue_order : sequence of str, optional
+        Order of condition levels for plotting
+        (default: ``("congruent", "incongruent")``).
+
+    palette_emp : Mapping[str, str], optional
+        Color mapping for empirical conditions.
+
+    palette_model : Mapping[str, str], optional
+        Color mapping for model predictions.
+
+    delta_linestyle_model, caf_linestyle_model, cdf_linestyle_model : str, optional
+        Line styles for model predictions in the respective panels.
+
+    empirical_marker : str, optional
+        Marker style for empirical data (default: ``"o"``).
+
+    empirical_linestyle : str, optional
+        Line style for empirical data (default: ``"--"``).
+
+    draw_linewidth : float, optional
+        Line width for individual draw-wise model curves.
+
+    empirical_linewidth : float, optional
+        Line width for empirical curves.
+
+    fig : matplotlib.figure.Figure, optional
+        Existing figure for plotting if ``new_plot`` is False.
+
+    axes : sequence of matplotlib.axes.Axes, optional
+        Existing axes (length 3) for plotting if ``new_plot`` is False.
+
+    draw_alpha : float, optional
+        Transparency for individual draw-wise model curves (default: 0.05).
+
+    mean_linewidth : float, optional
+        Line width for aggregated model curves.
+
+    markeredgecolor : str, optional
+        Edge color for empirical markers (default: ``"none"``).
+
+    markersize : float, optional
+        Size of empirical markers.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The resulting figure.
+
+    axes : sequence of matplotlib.axes.Axes
+        Axes corresponding to CAF, CDF-style quantile plot, and Δ-function.
+
+    Examples
+    --------
+    >>> fig, axes = plot_fit_ppc(
+    ...     caf_data, cdf_data, delta_data,
+    ...     caf_emp, cdf_emp, delta_emp
+    ... )
+
+    >>> fig, axes = plot_fit_ppc(
+    ...     caf_data, cdf_data, delta_data,
+    ...     caf_emp, cdf_emp, delta_emp,
+    ...     show_draws_caf=True,
+    ...     show_draws_cdf=True,
+    ...     show_draws_delta=True,
+    ...     show_draws_mean=True,
+    ...     draw_alpha=0.05
+    ... )
+    """
+
+    if new_plot:
+        fig, axes = plt.subplots(1,3, figsize=(16,4))
+
+    # CAFs
+
+    # Aggregated Prediction
+    if show_draws_mean:
+        sns.lineplot(caf_data, 
+                linewidth=mean_linewidth,
+                x='rt_bin', 
+                y='accuracy', 
+                hue=congruency, 
+                errorbar=caf_draws_errorbar,
+                err_kws={"alpha": 0.08}, 
+                alpha=1,
+                ax=axes[0],
+                legend=False, 
+                hue_order=hue_order, 
+                palette=palette_model,
+                linestyle=caf_linestyle_model)
+
+    # Spaghetti Predictions
+    if show_draws_caf:
+        sns.lineplot(caf_data, 
+                    linewidth=draw_linewidth,
+                    x='rt_bin', 
+                    y='accuracy', 
+                    hue=congruency, 
+                    errorbar=None, 
+                    estimator=None,
+                    units=draw_name,
+                    alpha=draw_alpha,
+                    ax=axes[0],
+                    legend=False, 
+                    hue_order=hue_order, 
+                    palette=palette_model,
+                    linestyle=caf_linestyle_model)
+    
+    # Empirical Data
+    sns.lineplot(caf_data_emp, 
+                 linestyle=empirical_linestyle,
+                 linewidth=empirical_linewidth,
+                 marker=empirical_marker, 
+                 errorbar=None, 
+                 legend=legend, 
+                 markeredgecolor=markeredgecolor,
+                 markersize=markersize,
+                 x='rt_bin', 
+                 y='accuracy', 
+                 hue=congruency_emp, 
+                 ax=axes[0], 
+                 hue_order=hue_order, 
+                 palette=palette_emp)
+
+    
+    axes[0].set(ylim=(0, 1))
+    axes[0].set_title('CAF', fontsize=fontsize)
+    axes[0].set_ylabel('CAF', fontsize=fontsize_axes)
+    axes[0].set_xlabel('Bins', fontsize=fontsize_axes)
+
+    # CDFs
+
+    mean_data = cdf_data.groupby(['quantile', congruency])['rt'].mean().reset_index()
+
+    mean_data_emp = cdf_data_emp.groupby(['quantile', congruency_emp])['rt'].mean().reset_index()
+
+    # Spaghetti Predictions
+    if show_draws_cdf:
+        sns.lineplot(cdf_data, 
+                    linewidth=draw_linewidth, 
+                    linestyle=cdf_linestyle_model, 
+                    x='rt', 
+                    y='quantile', 
+                    estimator=None,
+                    units=draw_name,
+                    hue=congruency, 
+                    alpha=draw_alpha, 
+                    ax=axes[1], 
+                    legend=False, 
+                    hue_order=hue_order, 
+                    palette=palette_model)
+    
+    # Aggregated Predictions
+    if show_draws_mean:
+        sns.lineplot(mean_data, 
+                linewidth=mean_linewidth, 
+                linestyle=cdf_linestyle_model, 
+                x='rt', 
+                y='quantile', 
+                hue=congruency, 
+                alpha=1, 
+                ax=axes[1], 
+                legend=False, 
+                hue_order=hue_order, 
+                palette=palette_model)
+    
+    # Empirical Data
+    sns.lineplot(mean_data_emp, 
+                 linewidth=empirical_linewidth, 
+                 marker=empirical_marker, 
+                 linestyle=empirical_linestyle, 
+                 x='rt', 
+                 y='quantile',
+                 legend=False,
+                 markeredgecolor=markeredgecolor,
+                 markersize=markersize,
+                 hue=congruency_emp, 
+                 alpha=1, 
+                 ax=axes[1], 
+                 hue_order=hue_order, 
+                 palette=palette_emp)
+    
+    axes[1].set_title('CDF', fontsize=fontsize)
+    axes[1].set_ylabel('Cumulative Density', fontsize=fontsize_axes)
+    axes[1].set_xlabel('RT[s]', fontsize=fontsize_axes)
+
+    # DELTA
+    delta_data['mean_qu_bins'] = pd.cut(delta_data["mean_qu"], bins=n_delta_bins)
+
+    delta_bins = (
+            delta_data
+            .groupby('quantile', observed=False)[['mean_qu', 'delta']]
+                .agg(
+                    mean_qu=('mean_qu', 'mean'),
+                    delta=('delta', 'mean'),
+                    sd_delta=('delta', 'std')
+                    )
+            .reset_index()
+            .sort_values('mean_qu')
+        )
+
+    delta_data_emp['mean_qu_bins'] = pd.cut(delta_data_emp["mean_qu"], bins=n_delta_bins)
+
+    delta_bins_emp = (
+            delta_data_emp
+            .groupby('quantile', observed=False)[['mean_qu', 'delta']]
+                .agg(
+                    mean_qu=('mean_qu', 'mean'),
+                    delta=('delta', 'mean'),
+                    sd_delta=('delta', 'std')
+                    )
+            .reset_index()
+            .sort_values('mean_qu')
+        )
+
+    # Spaghetti Predictions
+    if show_draws_delta:
+        sns.lineplot(delta_data,
+                    linewidth=draw_linewidth, 
+                    linestyle=delta_linestyle_model, 
+                    x='mean_qu', 
+                    y='delta', 
+                    estimator=None,
+                    units=draw_name,
+                    legend=False, 
+                    ax=axes[2], 
+                    alpha = draw_alpha,
+                    color='black')
+    
+    # Aggregated Predictions
+    if show_draws_mean:
+        sns.lineplot(delta_bins,
+                     linewidth=mean_linewidth,
+                     linestyle=delta_linestyle_model,
+                     x='mean_qu', 
+                     y='delta', 
+                     alpha=0.8,
+                     legend=False,
+                     color='#0A2A5E',
+                     ax=axes[2])
+
+    # Empirical Data
+    sns.lineplot(delta_bins_emp,
+                 linewidth=empirical_linewidth,
+                 linestyle=empirical_linestyle,
+                 marker=empirical_marker,
+                 markeredgecolor=markeredgecolor,
+                 markersize=markersize,
+                 x='mean_qu', 
+                 y='delta', 
+                 legend=False, 
+                 ax=axes[2],
+                 color='black')
+
+    axes[2].set_ylabel(r'$\Delta$', fontsize=fontsize_axes)
+    axes[2].set_xlabel('RT[s]', fontsize=fontsize_axes)
+    axes[2].set_title(r'$\Delta$-Function', fontsize=fontsize)
+
+    if cdf_xlim is not None:
+        axes[1].set(xlim=cdf_xlim)
+    
+    if caf_ylim is not None:
+        axes[0].set(ylim=caf_ylim)
+
+    if delta_ylim is not None:
+        axes[2].set(ylim=delta_ylim)
+
+    if delta_xlim is not None:
+        axes[2].set(xlim=delta_xlim)
+
+    if legend & new_plot:
+        axes[0].legend(title='', loc='lower right', fontsize=fontsize_legend, frameon=False)
+
+    for ax in axes:
+        ax.tick_params(axis='x', labelsize=fontsize_ticklabels)  
+        ax.tick_params(axis='y', labelsize=fontsize_ticklabels)  
+
+    fig.tight_layout()
+
+    return fig, axes
+
+def summarise_q_ppc(
+    data: pd.DataFrame,
+    grouping_vars: List[str] = None,
+    id_name: str = "id",
+    rt: str = "rt",
+    accuracy: str = "accuracy",
+    congruency: str = "congruency",
+) -> pd.DataFrame:
+    """
+    Compute grouped RT quantiles, mean RT, and mean accuracy for posterior
+    predictive checks or descriptive model-fit summaries.
+
+    The function aggregates trial-level data within the groups defined by
+    `grouping_vars` and returns a wide-format summary table containing:
+
+    - RT quantiles (25th, 50th, and 75th percentiles)
+    - mean RT
+    - mean accuracy
+
+    RT quantiles and mean RT are computed within the full grouping structure
+    given by `grouping_vars`. If `grouping_vars` include `accuracy`, Mean accuracy is computed after removing the
+    `accuracy column from the grouping variables, if present, so that accuracy
+    is summarized across trials rather than within a fixed accuracy category.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        Trial-level data containing at least the columns specified by
+        `id_name`, `rt`, `accuracy`, and `congruency`.
+
+    grouping_vars : list of str
+        Column names defining the grouping structure for the summaries.
+        Examples are `["id", "congruency"]` or
+        `["id", "congruency", "accuracy"]`.
+
+        If `accuracy` is included in `grouping_vars`, RT quantiles and mean RT
+        are computed separately for each accuracy level, but mean accuracy is
+        still computed after removing `accuracy` from the grouping variables.
+
+    id_name : str, default="id"
+        Column name identifying subjects or independent observational units.
+
+    rt : str, default="rt"
+        Column name containing reaction times.
+
+    accuracy : str, default="accuracy"
+        Column name containing response accuracy, typically coded as 0/1.
+
+    congruency : str, default="congruency"
+        Column name containing congruency-condition labels.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A wide-format DataFrame with one row per grouping cell and the
+        following columns:
+
+        - grouping variables from `grouping_vars`
+        - `mean_rt`: mean RT within group
+        - `mean_acc`: mean accuracy within group
+        - `rt_q25`: 25th RT percentile within group
+        - `rt_q50`: 50th RT percentile (median) within group
+        - `rt_q75`: 75th RT percentile within group
+
+
+    Raises
+    ------
+    KeyError
+        If one or more required columns are missing from `data`.
+
+    Notes
+    -----
+    - `dmc_helpers.check_vars()` is used to validate that the required columns
+      are present.
+    - `dmc_helpers.check_congruency()` standardizes congruency labels to
+      `"congruent"` and `"incongruent"` before aggregation.
+    - RT quantiles are computed over all rows within each grouping cell.
+      Including `accuracy` in `grouping_vars` creates separate RT summaries for
+      each accuracy level; it does not filter the data to correct trials only.
+    - The function returns a summary table intended for PPC visualization or
+      empirical-versus-simulated fit comparisons.
+    """
+
+    # check if variables are present in data set
+    check_vars(data, rt=rt, id_name=id_name, accuracy=accuracy, congruency=congruency)
+
+    # check congruency coding and return data with 'congruent'/'incongruent' labels
+    data = check_congruency(
+        data,
+        rt=rt,
+        congruency=congruency,
+        output_coding_con="congruent",
+        output_coding_inc="incongruent",
+    )
+
+    grouping_vars_acc = grouping_vars.copy()
+
+    if accuracy in grouping_vars_acc:
+        grouping_vars_acc.remove(accuracy)
+
+    # compute RT quantiles for each condition
+    df_q = (
+        data
+        .groupby(grouping_vars)[rt]
+        .quantile([0.25, 0.5, 0.75])
+        .rename_axis(index=[*grouping_vars, "quantile"])
+        .reset_index()
+    )
+
+    # compute mean RTs for each condition
+    df_means_rt = (
+        data
+        .groupby(grouping_vars)
+        .agg(
+            mean_rt=(rt, "mean"),
+        )
+        .reset_index()
+    )
+
+    # compute mean Accuracies for each condition 
+    # (of course not per accuracy condition)
+    df_means_acc = (
+        data
+        .groupby(grouping_vars_acc)
+        .agg(
+            mean_acc=(accuracy, "mean"),
+        )
+        .reset_index()
+    )
+
+    # merge all data sets
+    df_q = (df_q
+        .merge(df_means_rt, on=grouping_vars)
+        .merge(df_means_acc, on=grouping_vars_acc)
+        )
+
+    # transform to wide and rename columns
+    df_q_wide = (
+        df_q
+        .pivot_table(
+            index=grouping_vars + ["mean_rt", "mean_acc"],
+            columns="quantile",
+            values=rt,
+        )
+        .reset_index()
+    )
+
+    df_q_wide = df_q_wide.rename(
+        columns={
+            0.25: "rt_q25",
+            0.50: "rt_q50",
+            0.75: "rt_q75",
+        }
+    )
+
+    # make sure accuracy is an integer
+    if accuracy in grouping_vars:
+        df_q_wide[accuracy] = df_q_wide[accuracy].astype(int)
+
+    return df_q_wide
+
+
+def compute_fit_qs(
+    resimulated_data: pd.DataFrame,
+    empirical_data: pd.DataFrame,
+    grouping_vars: List[str],
+    draw_name: str = None,
+    summarise_draws: bool = True,
+    id_name: str = 'id',
+    rt: str = "rt",
+    accuracy: str = "accuracy",
+    congruency: str = "congruency"
+) -> pd.DataFrame:
+    
+    """
+    Compute grouped empirical and posterior-predictive summary statistics and
+    merge them into a single comparison table.
+
+    For both empirical and resimulated trial-level data, the function computes
+    distributional summaries using `summarise_q_ppc()`. These summaries include:
+
+    - mean RT
+    - mean accuracy
+    - RT quantiles (25th, 50th, 75th percentiles)
+
+    Empirical summaries are always computed at the grouping level specified by
+    `grouping_vars`.
+
+    If `draw_name` is provided, resimulated summaries are first computed within
+    each draw as well as within `grouping_vars`. If `summarise_draws=True`, these
+    draw-level summaries are then aggregated across draws within each grouping
+    cell using:
+
+    - the median
+    - the 5th percentile
+    - the 95th percentile
+
+    This yields one posterior-predictive point estimate and interval per grouping
+    cell, which can be merged with the corresponding empirical summary.
+
+    Parameters
+    ----------
+    resimulated_data : pandas.DataFrame
+        Trial-level model-generated data. If `draw_name` is provided, this
+        DataFrame must contain a column identifying resimulation draws.
+
+    empirical_data : pandas.DataFrame
+        Trial-level empirical data.
+
+    grouping_vars : list of str
+        Column names defining the grouping structure for empirical summaries and
+        for the final merge. Examples include `["id", "congruency"]` or
+        `["id", "congruency", "accuracy"]`.
+
+    draw_name : str or None, default=None
+        Column name identifying posterior-predictive draws or resimulation
+        indices in `resimulated_data`. If provided, resimulated summaries are
+        computed separately for each draw.
+
+    summarise_draws : bool, default=True
+        If True and `draw_name` is provided, aggregate the draw-level simulated
+        summaries across draws within each grouping cell using the median and
+        the 5th and 95th percentiles. If False, keep draw-level summaries.
+
+    id_name : str, default='id'
+        Column name identifying participants or observational units.
+
+    rt : str, default='rt'
+        Column name containing reaction times.
+
+    accuracy : str, default='accuracy'
+        Column name containing response accuracy, typically coded as 0/1.
+
+    congruency : str, default='congruency'
+        Column name containing congruency-condition labels.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A merged DataFrame containing empirical and simulated summary
+        statistics.
+
+        If `summarise_draws=True`, the output contains one row per grouping cell
+        in `grouping_vars`, with empirical columns suffixed by `_emp` and
+        simulated columns named with suffix patterns such as:
+
+        - `_resim_median`
+        - `_resim_q05`
+        - `_resim_q95`
+
+        If `summarise_draws=False`, the output contains draw-level simulated
+        summaries merged with the corresponding empirical summaries.
+
+    Raises
+    ------
+    ValueError
+        If `draw_name` is provided but is not present in `resimulated_data`.
+
+    Notes
+    -----
+    - This function prepares grouped summaries for posterior predictive checks
+    and descriptive fit assessment; it does not compute formal fit metrics.
+    - Empirical and simulated summaries are generated by `summarise_q_ppc()`.
+    - Percentile-based intervals are centered naturally around the simulated
+    median rather than the simulated mean.
+    """
+    grouping_vars = list(grouping_vars)
+
+    # compute summary stats for empirical data
+    df_q_emp_wide = summarise_q_ppc(
+        empirical_data,
+        rt=rt,
+        id_name=id_name,
+        accuracy=accuracy,
+        congruency=congruency,
+        grouping_vars=grouping_vars,
+    )
+
+    if draw_name is not None:
+        if draw_name not in resimulated_data.columns:
+            raise ValueError(
+                f"draw_name '{draw_name}' not present in resimulated_data. "
+                "Please provide a valid resimulation index column."
+            )
+
+        grouping_vars_resim = grouping_vars.copy()
+        if draw_name not in grouping_vars_resim:
+            grouping_vars_resim.append(draw_name)
+    else:
+        grouping_vars_resim = grouping_vars.copy()
+        summarise_draws = False
+
+    # compute summary stats for resimulated data
+    df_q_wide = summarise_q_ppc(
+        resimulated_data,
+        rt=rt,
+        id_name=id_name,
+        accuracy=accuracy,
+        congruency=congruency,
+        grouping_vars=grouping_vars_resim,
+    )
+
+    if summarise_draws:
+        var_names = ["mean_rt", "mean_acc", "rt_q25", "rt_q50", "rt_q75"]
+
+        # append 'resim' to column names
+        cols_to_rename = [c for c in df_q_wide.columns if c not in grouping_vars]
+        df_q_wide = df_q_wide.rename(columns={c: f"{c}_resim" for c in cols_to_rename})
+        new_vars = [f'{c}_resim' for c in var_names]
+
+        # compute summary statistics across draws
+        df_q_wide = (
+            df_q_wide.groupby(grouping_vars, observed=False)[new_vars]
+            .agg([
+                "median",
+                ("q05", lambda x: np.quantile(x, 0.05)),
+                ("q95", lambda x: np.quantile(x, 0.95)),
+            ])
+            .reset_index()
+        )
+
+        # reduce levels of df
+        df_q_wide.columns = [
+            col if not isinstance(col, tuple) else "_".join([str(c) for c in col if c != ""])
+            for col in df_q_wide.columns
+        ]
+
+        # append '_emp' to empirical data
+        cols_to_rename = [c for c in df_q_emp_wide.columns if c not in grouping_vars]
+        df_q_emp_wide = df_q_emp_wide.rename(columns={c: f"{c}_emp" for c in cols_to_rename})
+
+    data_merged = pd.merge(
+        df_q_wide,
+        df_q_emp_wide,
+        how="left",
+        on=grouping_vars,
+        suffixes=("_resim", "_emp")
+    )
+
+    return data_merged
+
+def plot_fit_qs(
+    data: pd.DataFrame,
+    con_color: str = "#10225e",
+    inc_color: str = "#FF6361",
+    fontsize: int = 22,
+    accuracy_lims: Tuple[float, float] = (0.6, 1.0),
+    figsize: Tuple[float, float] = (15, 3),
+    plot_uncertainty: bool = False,
+    **kwargs: Any
+) -> Tuple[Figure, list[Axes]]:
+    """
+    Visualize quantile-based model fit by comparing empirical and resimulated
+    summary statistics.
+
+    This function creates a five-panel scatterplot comparing empirical summary
+    statistics to corresponding resimulated or posterior-predictive summaries.
+    Each panel plots empirical values on the x-axis against simulated values on
+    the y-axis, with a dashed diagonal reference line (`y = x`) indicating
+    perfect agreement.
+
+    The following statistics are shown:
+
+    - mean RT
+    - mean accuracy
+    - 25th RT percentile
+    - 50th RT percentile (median)
+    - 75th RT percentile
+
+    Points are colored by congruency condition, with expected levels
+    `"congruent"` and `"incongruent"`.
+
+    Two input modes are supported:
+
+    1. **Point-estimate mode** (`plot_uncertainty=False`)
+    The input `data` must contain empirical columns with suffix `_emp` and
+    simulated columns with suffix `_resim`, for example:
+
+    - `mean_rt_emp`, `mean_rt_resim`
+    - `mean_acc_emp`, `mean_acc_resim`
+    - `rt_q25_emp`, `rt_q25_resim`
+    - `rt_q50_emp`, `rt_q50_resim`
+    - `rt_q75_emp`, `rt_q75_resim`
+
+    2. **Uncertainty mode** (`plot_uncertainty=True`)
+    The input `data` must contain empirical columns with suffix `_emp` and
+    aggregated posterior-predictive summaries with suffixes `_resim_median`,
+    `_resim_q05`, and `_resim_q95` auch as computed by compute_fit_qs(), for example:
+
+    - `mean_rt_emp`, `mean_rt_resim_median`, `mean_rt_resim_q05`, `mean_rt_resim_q95`
+    - `mean_acc_emp`, `mean_acc_resim_median`, `mean_acc_resim_q05`, `mean_acc_resim_q95`
+    - `rt_q25_emp`, `rt_q25_resim_median`, `rt_q25_resim_q05`, `rt_q25_resim_q95`
+    - `rt_q50_emp`, `rt_q50_resim_median`, `rt_q50_resim_q05`, `rt_q50_resim_q95`
+    - `rt_q75_emp`, `rt_q75_resim_median`, `rt_q75_resim_q05`, `rt_q75_resim_q95`
+
+    In this mode, vertical error bars show the interval from the 5th to the
+    95th percentile of the simulated summaries.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        DataFrame containing merged empirical and simulated summary statistics.
+
+    con_color : str, default="#10225e"
+        Color used for the `"congruent"` condition.
+
+    inc_color : str, default="#FF6361"
+        Color used for the `"incongruent"` condition.
+
+    fontsize : int, default=22
+        Base font size used for subplot titles and shared axis labels.
+
+    accuracy_lims : tuple of float, default=(0.6, 1.0)
+        Axis limits for the mean-accuracy panel. The same limits are applied to
+        both x- and y-axes.
+
+    figsize : tuple of float, default=(15, 3)
+        Figure size in inches.
+
+    plot_uncertainty : bool, default=False
+        If False, plot only point estimates from columns ending in `_resim`.
+        If True, plot simulated medians from columns ending in `_resim_median`
+        and add vertical uncertainty bars using the corresponding `_resim_q05`
+        and `_resim_q95` columns.
+
+    **kwargs : Any
+        Additional keyword arguments passed to `seaborn.scatterplot`. These can
+        be used to override default marker aesthetics such as size, alpha, or
+        linewidth.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The created Matplotlib figure.
+
+    axes : list of matplotlib.axes.Axes
+        List of the five subplot axes in left-to-right order.
+
+    Raises
+    ------
+    ValueError
+        If the input DataFrame does not contain the columns required for the
+        requested plotting mode.
+
+    Notes
+    -----
+    - The function assumes that congruency labels have already been standardized
+    to `"congruent"` and `"incongruent"`.
+    - In uncertainty mode, the simulated median is plotted as the point estimate
+    and the 5th and 95th percentiles are plotted as vertical uncertainty bars.
+    - Axis limits for RT panels are computed from the combined range of empirical
+    and simulated values, and also include uncertainty bounds when
+    `plot_uncertainty=True`.
+    """
+
+    hue_order = ["congruent", "incongruent"]
+    palette = {"congruent": con_color, "incongruent": inc_color}
+
+    titles = ["Mean RT", "Mean Accuracy", "25% Quantile RT", "Median RT", "75% Quantile RT"]
+    stats = ["mean_rt", "mean_acc", "rt_q25", "rt_q50", "rt_q75"]
+
+    plot_data = data.copy()
+
+    if plot_uncertainty:
+        resim_suffix = 'resim_median'
+
+        expected_unc_cols = (
+            [f"{v}_resim_median" for v in stats]
+            + [f"{v}_resim_q05" for v in stats]
+            + [f"{v}_resim_q95" for v in stats]
+        )
+
+        missing_unc_cols = [c for c in expected_unc_cols if c not in plot_data.columns]
+
+        if missing_unc_cols:
+            raise ValueError(
+                "data does not include the columns required for uncertainty plotting. "
+                "Please set plot_uncertainty=False or summarise_draws=True in compute_fit_qs(). "
+                f"Missing columns: {missing_unc_cols}"
+            )
+
+    else:
+        resim_suffix = 'resim'
+
+        if 'mean_rt_resim_median' in plot_data.columns:
+            raise ValueError(
+                "data includes aggregated values across resimulations. "
+                "Please set plot_uncertainty=True."
+            )
+
+    fig, axes_arr = plt.subplots(1, 5, figsize=figsize)
+
+    # ensure a stable return type
+    axes = list(axes_arr)
+
+    for j, var in enumerate(stats):
+        x_col = f"{var}_emp"
+        y_col = f"{var}_{resim_suffix}"
+
+        scatter_kws = dict(
+            data=plot_data,
+            x=x_col,
+            y=y_col,
+            hue="congruency",
+            hue_order=hue_order,
+            palette=palette,
+            alpha=0.5,
+            s=12,
+            linewidth=0,
+            legend=False,
+            marker="o",
+            ax=axes[j],
+        )
+        scatter_kws.update(kwargs)
+        sns.scatterplot(**scatter_kws)
+
+        if plot_uncertainty:
+            for level in hue_order:
+                sub = plot_data[plot_data["congruency"] == level]
+
+                axes[j].errorbar(
+                    sub[x_col],
+                    sub[y_col],
+                    yerr=[
+                        sub[y_col] - sub[f"{var}_resim_q05"],
+                        sub[f"{var}_resim_q95"] - sub[y_col],
+                    ],
+                    fmt="none",
+                    ecolor=palette[level],
+                    elinewidth=0.5,
+                    alpha=0.5
+                )
+
+        if var != "mean_acc":
+            series_to_bound = [plot_data[x_col], plot_data[y_col]]
+            if plot_uncertainty:
+                series_to_bound.extend([
+                    plot_data[f"{var}_resim_q05"],
+                    plot_data[f"{var}_resim_q95"],
+                ])
+
+            all_vals = pd.concat(series_to_bound)
+            vmin = all_vals.min(skipna=True)
+            vmax = all_vals.max(skipna=True)
+
+            if pd.isna(vmin) or pd.isna(vmax):
+                lims = [0.0, 1.0]
+            else:
+                lims = [float(vmin) - 0.02, float(vmax) + 0.02]
+        else:
+            lims = list(accuracy_lims)
+
+        axes[j].plot(lims, lims, color="black", linestyle="--", linewidth=1)
+        axes[j].set_xlim(lims)
+        axes[j].set_ylim(lims)
+
+        axes[j].set_xlabel("")
+        axes[j].set_ylabel("")
+        axes[j].set_title(titles[j], fontsize=fontsize - 5)
+
+    fig.supxlabel("Empirical", fontsize=fontsize - 5, y=0.0)
+    fig.supylabel("Resimulated", fontsize=fontsize - 5, x=0.0)
+    fig.tight_layout()
+
+    return fig, axes
 
 def summarise_q(
     data: pd.DataFrame,
@@ -1718,205 +3248,6 @@ def summarise_q(
     )
 
     return df_q_wide
-
-
-def compute_fit_qs(
-    resimulated_data: pd.DataFrame,
-    empirical_data: pd.DataFrame,
-    rt: str = "rt",
-    accuracy: str = "accuracy",
-    congruency: str = "congruency",
-    grouping_vars: Optional[List[str]] = None,
-) -> pd.DataFrame:
-    """
-    Compute and merge quantile-based summary statistics for empirical and
-    resimulated datasets.
-
-    This function summarises response time (RT) distributions and accuracy
-    within groups for both empirical and resimulated data using `summarise_q()`,
-    and merges the resulting summaries into a single comparison table. For each
-    group defined by `grouping_vars`, the following statistics are computed:
-
-        - RT quantiles (25th, 50th, 75th percentiles)
-        - Mean RT
-        - Mean accuracy
-
-    Parameters
-    ----------
-    resimulated_data
-        DataFrame containing model-generated (resimulated) trial-level data.
-    empirical_data
-        DataFrame containing empirical trial-level data.
-    rt
-        Column name containing reaction times.
-    accuracy
-        Column name containing response accuracy (expected numeric, e.g., 0/1).
-    congruency
-        Column name containing congruency condition labels.
-    grouping_vars
-        Columns used to define grouping structure (e.g., participant and
-        condition). If None, defaults to ["participant", "congruency"].
-
-    Returns
-    -------
-    pandas.DataFrame
-        A merged DataFrame containing quantile and mean summaries for both
-        resimulated and empirical data. Columns from the two datasets are
-        distinguished by suffixes:
-
-            - '_resim' for resimulated data
-            - '_emp' for empirical data
-
-        The DataFrame is keyed by `grouping_vars`.
-
-    Notes
-    -----
-    - This function does not compute formal fit statistics (e.g., correlations
-      or error metrics). It prepares distributional summaries that can be used
-      for subsequent model fit evaluation.
-    - Internally relies on `summarise_q()` for quantile and mean computation.
-    """
-    if grouping_vars is None:
-        grouping_vars = ["participant", "congruency"]
-
-    df_q_emp_wide = summarise_q(
-        empirical_data,
-        rt=rt,
-        accuracy=accuracy,
-        congruency=congruency,
-        grouping_vars=grouping_vars,
-    )
-
-    df_q_wide = summarise_q(
-        resimulated_data,
-        rt=rt,
-        accuracy=accuracy,
-        congruency=congruency,
-        grouping_vars=grouping_vars,
-    )
-
-    data_merged = pd.merge(
-        df_q_wide,
-        df_q_emp_wide,
-        how="left",
-        on=grouping_vars,
-        suffixes=("_resim", "_emp"),
-    )
-
-    return data_merged
-
-def plot_fit_qs(
-    data: pd.DataFrame,
-    con_color: str = "#10225e",
-    inc_color: str = "#FF6361",
-    fontsize: int = 22
-) -> Tuple[Figure, list[Axes]]:
-    """
-    Visualize quantile-based model fit by comparing empirical and resimulated
-    summary statistics.
-
-    This function generates a panel of scatterplots comparing empirical and
-    resimulated summary measures (typically produced by `compute_fit_qs()`).
-    For each statistic, empirical values are plotted on the x-axis and the
-    corresponding resimulated values on the y-axis. A dashed diagonal
-    reference line (y = x) indicates perfect agreement.
-
-    Five statistics are visualized:
-
-        - Mean RT
-        - Mean accuracy
-        - 25th percentile RT
-        - Median RT (50th percentile)
-        - 75th percentile RT
-
-    Points are colored by congruency condition (expected labels:
-    "congruent" and "incongruent").
-
-    Parameters
-    ----------
-    data
-        DataFrame containing merged empirical and resimulated summaries.
-        Required columns:
-
-            - 'congruency'
-            - 'mean_rt_emp',  'mean_rt_resim'
-            - 'mean_acc_emp', 'mean_acc_resim'
-            - 'rt_q25_emp',   'rt_q25_resim'
-            - 'rt_q50_emp',   'rt_q50_resim'
-            - 'rt_q75_emp',   'rt_q75_resim'
-
-    con_color
-        Hex color used for the "congruent" condition.
-    inc_color
-        Hex color used for the "incongruent" condition.
-    fontsize
-        Font size of the figure text.
-
-
-    Returns
-    -------
-    fig
-        The Matplotlib figure.
-    axes
-        A list of the five subplot axes (left-to-right).
-
-    Notes
-    -----
-    - Accuracy plots use fixed limits (0.6–1.0); RT plots use limits derived
-      from the empirical values.
-    - If your congruency labels differ, adjust `hue_order` and `palette`.
-    """
-    hue_order = ["congruent", "incongruent"]
-    palette = {"congruent": con_color, "incongruent": inc_color}
-
-    titles = ["Mean RT", "Mean Accuracy", "25% Quantile RT", "Median RT", "75% Quantile RT"]
-    stats = ["mean_rt", "mean_acc", "rt_q25", "rt_q50", "rt_q75"]
-
-    plot_data = data.copy()
-
-    fig, axes_arr = plt.subplots(1, 5, figsize=(15, 3))
-    axes = list(axes_arr)  # ensure a stable return type
-
-    for j, var in enumerate(stats):
-        x_col = f"{var}_emp"
-        y_col = f"{var}_resim"
-
-        sns.scatterplot(
-            data=plot_data,
-            x=x_col,
-            y=y_col,
-            hue="congruency",
-            hue_order=hue_order,
-            palette=palette,
-            alpha=0.8,
-            legend=False,
-            ax=axes[j],
-        )
-
-        if var != "mean_acc":
-            # Use empirical range for axis limits; handle all-NaN gracefully
-            x_min = plot_data[x_col].min(skipna=True)
-            x_max = plot_data[x_col].max(skipna=True)
-            if pd.isna(x_min) or pd.isna(x_max):
-                lims = [0.0, 1.0]
-            else:
-                lims = [float(x_min) - 0.02, float(x_max) + 0.02]
-        else:
-            lims = [0.6, 1.0]
-
-        axes[j].plot(lims, lims, color="black", linestyle="--", linewidth=1)
-        axes[j].set_xlim(lims)
-        axes[j].set_ylim(lims)
-
-        axes[j].set_xlabel("")
-        axes[j].set_ylabel("")
-        axes[j].set_title(titles[j], fontsize=fontsize - 5)
-
-    fig.supxlabel("Empirical", fontsize=fontsize - 5, y=0.0)
-    fig.supylabel("Resimulated", fontsize=fontsize - 5, x=0.0)
-    fig.tight_layout()
-
-    return fig, axes
 
 
 def make_strictly_increasing(
