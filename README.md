@@ -123,38 +123,50 @@ cdf_data, cdf_data_emp,
   
 ## Helper functions
 
-- **`format_empirical_data(data, var_names=("rt","accuracy","congruency_num"))`**  
-  Extracts trial-level empirical variables from a `DataFrame` and reshapes them into the batched dictionary format expected by the BayesFlow pipeline similar to the simulator output (`rt`, `accuracy`, `conditions`, plus `num_obs`).
+## Helper functions
 
-- **`format_sim_data(sim_data, congruency_coding=0, only_convergents=True, id_name="id")`**  
-  Converts batched simulator output (`rt`, `accuracy`, `conditions`) into a long-format `DataFrame`, adds human-readable congruency/accuracy labels, and optionally removes non-convergent trials (RT = -1).
+- **`format_empirical_data(data, rt=..., congruency=..., accuracy=...)`**  
+  - Extracts trial-level empirical variables from a `DataFrame` and reshapes them into the batched dictionary format expected by the BayesFlow pipeline, analogous to simulator output (`rt`, `accuracy`, `conditions`, and `num_obs`).
+  - Variable names in the input dataset must be specified via `rt`, `congruency`, and `accuracy`.
 
-- **`fit_empirical_data(data, approximator, id_name="participant", var_names=[...])`**  
-  Performs amortized posterior sampling per subject/group in an empirical dataset: formats each subject’s data, draws posterior samples via the BayesFlow approximator, records sampling time, and returns a concatenated long-format `DataFrame`.
+- **`format_sim_data(sim_data, congruency_coding=0, only_convergents=True)`**  
+  - Converts batched simulator output (`rt`, `accuracy`, `conditions`) into a long-format `DataFrame`, adds human-readable congruency and accuracy labels, and optionally removes non-convergent trials (`rt = -1`).
 
-- **`resim_data(post_sample_data, num_obs, simulator, part, num_resims=50, param_names=(...))`**  
-  Generates posterior predictive datasets by resimulating trials from posterior parameter samples for a given participant. Filters negative parameter draws and calls the simulator repeatedly, returning a stacked `DataFrame` annotated with `num_resim` and `participant`.
+- **`fit_empirical_data(data, approximator, id_name=..., rt=..., congruency=..., accuracy=...)`**  
+  - Performs amortized posterior sampling for each subject or observational unit in an empirical dataset.
+  - Formats each subject’s data, draws posterior samples via the BayesFlow approximator, records sampling time, and returns a concatenated long-format `DataFrame`.
+
+- **`resim_data(empirical_data, post_samples, simulator, num_resims=50, id_name=..., rt=..., congruency=...)`**  
+  - Generates posterior predictive trial-level datasets for all participants or units in an empirical dataset.
+  - Uses posterior samples (for example, the output of `fit_empirical_data`) to resimulate `num_resims` datasets per participant, matches the number of simulated trials to the empirical number of observations, and returns one stacked `DataFrame` annotated with `num_resim` and the participant identifier.
+  - `id_name`, `rt`, and `congruency` specify the relevant column names in the empirical dataset.
 
 - **`smd_samples(samples1, samples2, param_names, ...)`**  
-  Computes paired standardized mean differences (Cohen’s d) between two posterior sample sets across participants for each parameter, summarizes with posterior mean and HDI, and returns both the d-sample `DataFrame` and a KDE-based figure.
+  - Computes paired standardized mean differences (Cohen’s *d*) between two posterior sample sets across participants for each parameter.
+  - Returns both the `DataFrame` of sampled effect sizes and a KDE-based summary figure with posterior mean and HDI.
 
-- **`compute_stats(df_complete, id_name="id", congruency_name="congruency_name", n_rt_bins=5, quantiles=...)`**  
-  Derives standard distributional summaries for RT tasks:
-  - Δ-function data (correct-trial RT quantiles, wide format, plus `delta` and `mean_qu`)
-  - CAF data (mean accuracy by RT quantile bins)
-  - CDF data (long-format quantiles for congruent vs. incongruent)
+- **`compute_stats_ppc(data, id_name="id", congruency="congruency", draw_name="num_resim", n_rt_bins=5, quantiles=...)`**  
+  - Computes standard RT-task distributional summaries for empirical data or posterior predictive checks:
+    - Δ-function data (correct-trial RT quantiles in wide format, including `delta` and `mean_qu`)
+    - CAF data (mean accuracy by RT quantile bins)
+    - CDF data (long-format RT quantiles for congruent vs. incongruent trials)
+  - If `draw_name=None`, returns participant-level summaries.
+  - If `draw_name` is provided, summaries are first computed within each participant and draw, then averaged across participants within draw, yielding one summary curve per PPC draw.
+  - Useful as input for `plot_stats()` and `plot_fit_ppc()`.
 
 - **`plot_stats(caf_data, cdf_data, delta_data, ...)`**  
-  Produces a 1×3 diagnostic figure (CAF, CDF, Δ-function), plotting individual trajectories where applicable plus aggregated curves based on the output of `compute_stats`.
+  - Produces a 1×3 diagnostic figure (CAF, CDF, Δ-function), optionally showing individual trajectories together with aggregated curves based on the output of `compute_stats_ppc()`.
 
-- **`plot_fit(caf_data, cdf_data, delta_data, caf_data_emp, cdf_data_emp, delta_data_emp, ...)`**  
-  Overlays model-based and empirical CAF/CDF/Δ-function summaries in a consistent 1×3 layout, with configurable styling, limits, legends, and optional reuse of existing axes based on the output of `compute_stats`.
+- **`plot_fit_ppc(caf_data, cdf_data, delta_data, caf_data_emp, cdf_data_emp, delta_data_emp, ...)`**  
+  - Overlays model-based and empirical CAF, CDF, and Δ-function summaries in a consistent 1×3 PPC layout.
+  - Supports draw-wise PPC curves, aggregated mean predictions, configurable styling, and reuse of existing figure axes.
 
 - **`weighted_metric_sum(metrics_table, weight_recovery=1, weight_pc=1, weight_sbc=1)`**  
-  Aggregates multiple evaluation metrics into a single scalar score via a weighted sum of row-wise means; posterior contraction is inverted (`1 - pc`) so that “smaller is better” becomes “larger is better.”
+  - Aggregates multiple evaluation metrics into a single scalar score via a weighted sum of row-wise means.
+  - Posterior contraction is inverted (`1 - pc`) so that smaller contraction values are rewarded as larger scores.
 
 - **`hdi(samples, hdi_prob=0.95)`**  
-  Computes the Highest Density Interval (HDI) for a 1D sample distribution, returning lower and upper credible bounds.
+  - Computes the Highest Density Interval (HDI) for a 1D sample distribution and returns lower and upper credible bounds.
 
 - **`param_labels(param_names)`**  
-  Produces LaTeX-ready parameter labels for plotting (adds backslashes for common Greek-style names like `tau`, `mu_c`, `mu_r`).
+  - Produces LaTeX-ready parameter labels for plotting, including common Greek-style names such as `tau`, `mu_c`, and `mu_r`.
