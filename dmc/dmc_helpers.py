@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import Tuple, Optional, Mapping, Sequence, Union, Dict, List, Any, Iterable, Hashable, Literal
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 from matplotlib.axes import Axes
 import numpy.typing as npt
 from tqdm import tqdm
@@ -2916,9 +2917,11 @@ def plot_fit_qs(
     con_color: str = "#10225e",
     inc_color: str = "#FF6361",
     fontsize: int = 22,
+    fontsize_legend: int = 10,
     accuracy_lims: Tuple[float, float] = (0.6, 1.0),
     figsize: Tuple[float, float] = (15, 3),
     plot_uncertainty: bool = False,
+    legend: bool = True,
     **kwargs: Any
 ) -> Tuple[Figure, list[Axes]]:
     """
@@ -2981,6 +2984,9 @@ def plot_fit_qs(
 
     fontsize : int, default=22
         Base font size used for subplot titles and shared axis labels.
+    
+    fontsize_legend : int, default=10
+        Font Size used for the legend (congruent/ incongruent).
 
     accuracy_lims : tuple of float, default=(0.6, 1.0)
         Axis limits for the mean-accuracy panel. The same limits are applied to
@@ -2994,6 +3000,9 @@ def plot_fit_qs(
         If True, plot simulated medians from columns ending in `_resim_median`
         and add vertical uncertainty bars using the corresponding `_resim_q05`
         and `_resim_q95` columns.
+
+    legend : bool, default=True
+        If True, legend is included in the first subplot with labels congruent/incongruent.
 
     **kwargs : Any
         Additional keyword arguments passed to `seaborn.scatterplot`. These can
@@ -3129,6 +3138,13 @@ def plot_fit_qs(
         axes[j].set_xlabel("")
         axes[j].set_ylabel("")
         axes[j].set_title(titles[j], fontsize=fontsize - 5)
+
+    if legend:
+        handles = [
+            Line2D([0], [0], marker="o", linestyle="", color=con_color, label="congruent"),
+            Line2D([0], [0], marker="o", linestyle="", color=inc_color, label="incongruent"),
+        ]
+        axes[0].legend(handles=handles, title="", loc="lower right", fontsize=fontsize_legend, frameon=False)
 
     fig.supxlabel("Empirical", fontsize=fontsize - 5, y=0.0)
     fig.supylabel("Resimulated", fontsize=fontsize - 5, x=0.0)
