@@ -120,8 +120,6 @@ cdf_data, cdf_data_emp,
     * `posterior_predictive_checks.ipynb`: Plots model fit on an aggregated level between observed data an re-simulations computed by `scripts/posterior_predictive_check_data.py`.
     * `posterior_predictive_checks_q_correlations.ipynb`: Plots model fit (Quantile, Mean Accuracy and Reaction Time Correlations) on an individual level between observed data an re-simulations computed by `scripts/posterior_predictive_check_data.py`.
 
-  
-## Helper functions
 
 ## Helper functions
 
