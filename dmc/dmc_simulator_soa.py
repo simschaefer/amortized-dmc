@@ -75,7 +75,10 @@ class DMCsoa:
         soa : int, optional
             Stimulus onset asynchrony in milliseconds: the automatic activation
             starts at t=0, and the controlled activation (`mu_c`) is delayed until
-            t=soa. Default is 166.
+            t=soa. Default is 166. Like `a_value`, this is a fixed simulation
+            setting rather than an estimated parameter: it is not part of
+            `param_names` and is not sampled from the prior, so it must be
+            known/set per experiment rather than jointly inferred.
         """
 
         self.fixed_num_obs = fixed_num_obs
@@ -177,6 +180,12 @@ class DMCsoa:
 
         if self.soa < 0:
             raise ValueError("soa must be >= 0.")
+
+        if self.soa >= self.tmax:
+            raise ValueError(
+                f"soa ({self.soa}) must be < tmax ({self.tmax}); otherwise the controlled "
+                "activation (mu_c) never switches on within the simulated time window."
+            )
 
         self.param_names = tuple(param_names)
         self.prior_means = prior_means
