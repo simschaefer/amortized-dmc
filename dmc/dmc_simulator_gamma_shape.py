@@ -17,6 +17,8 @@ class DMCgamma:
         X0_beta_shape_fixed: float = 3,
         sdr_fixed: float | None = None,
         a_value: int = 2,
+        a_gamma_shape: float | None = None,
+        a_gamma_scale: float | None = None,
         num_conditions: int = 2,
         contamination_probability: float | None = None,
         contamination_uniform_lower: float = 0,
@@ -64,6 +66,20 @@ class DMCgamma:
             `trial()` is the estimated `a`, sampled from the prior). Only used
             to validate that `a_value > 1` at construction time; kept for API
             compatibility with the standard `DMC` simulator. Default is 2.
+        a_gamma_shape : float or None, optional
+            If given (together with `a_gamma_scale`), `a` is sampled from a
+            shifted Gamma distribution, `a = 1 + Gamma(a_gamma_shape,
+            a_gamma_scale)`, instead of the (truncated) Normal used for the
+            other parameters. This avoids the density pile-up a truncated
+            Normal produces right at its lower bound, and gives `a` a natural
+            right-skewed tail. Must be > 1 (so the density tapers to zero at
+            `a=1` instead of diverging). When set, `a`'s entries in
+            `prior_means`/`prior_sds` are ignored. Requires `a_gamma_scale` to
+            also be set. Default is None (use the Normal/truncated-Normal
+            prior for `a`, like every other parameter).
+        a_gamma_scale : float or None, optional
+            Scale of the shifted Gamma prior for `a` (see `a_gamma_shape`).
+            Must be > 0. Default is None.
         num_conditions : int, optional
             The number of conditions in the experiment. Default is 2.
         contamination_probability :
@@ -82,6 +98,8 @@ class DMCgamma:
         self.param_lower_bound = param_lower_bound
         self.X0_beta_shape_fixed = X0_beta_shape_fixed
         self.a_value = a_value
+        self.a_gamma_shape = a_gamma_shape
+        self.a_gamma_scale = a_gamma_scale
         self.num_conditions = num_conditions
         self.contamination_probability = contamination_probability
         self.contamination_uniform_lower = contamination_uniform_lower
@@ -175,6 +193,18 @@ class DMCgamma:
         self.prior_means = prior_means
         self.prior_sds = prior_sds
 
+        if (self.a_gamma_shape is None) != (self.a_gamma_scale is None):
+            raise ValueError("a_gamma_shape and a_gamma_scale must both be set, or both left as None.")
+
+        if self.a_gamma_shape is not None:
+            if self.a_gamma_shape <= 1:
+                raise ValueError(
+                    f"a_gamma_shape = {self.a_gamma_shape}. Must be > 1, otherwise the Gamma "
+                    "density diverges at a=1 instead of tapering to zero there."
+                )
+            if self.a_gamma_scale <= 0:
+                raise ValueError(f"a_gamma_scale = {self.a_gamma_scale}. Must be > 0.")
+
     def prior(self, rng: np.random.Generator | None = None) -> dict[str, float]:
         """
         Sample model parameters from the prior distribution.
@@ -206,6 +236,11 @@ class DMCgamma:
         The truncation is applied element-wise, i.e., each parameter shares the
         same lower bound but retains its own mean and standard deviation.
 
+        If `self.a_gamma_shape`/`self.a_gamma_scale` are set, `a`'s draw from
+        the (truncated) Normal above is overwritten with a sample from a
+        shifted Gamma distribution instead: `a = 1 + Gamma(a_gamma_shape,
+        a_gamma_scale)`.
+
         Examples
         --------
         >>> params = simulator.prior()
@@ -221,7 +256,11 @@ class DMCgamma:
             p = truncnorm.rvs(a, b, loc=self.prior_means, scale=self.prior_sds, random_state=rng)
         else:
             p = rng.normal(self.prior_means, self.prior_sds)
-    
+
+        if self.a_gamma_shape is not None:
+            a_idx = self.param_names.index('a')
+            p[a_idx] = 1.0 + rng.gamma(self.a_gamma_shape, self.a_gamma_scale)
+
         return dict(zip(self.param_names, p))
 
 
