@@ -2,3 +2,4 @@ from .dmc_simulator import DMC
 from .dmc_helpers import  compute_stats_ppc, hdi, resim_data, compute_gof, check_vars, compute_fit_qs, plot_fit_qs, check_congruency, resim_data_id, post_samples_to_df, weighted_metric_sum, fit_empirical_data, format_empirical_data, param_labels, format_sim_data, compute_stats, plot_stats, plot_fit, smd_samples
 from .dmc_simulator_soa import DMCsoa
 from .dmc_simulator_asym import DMCasym
+from .dmc_simulator_gamma_shape import DMCgamma
