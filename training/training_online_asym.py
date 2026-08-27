@@ -108,7 +108,7 @@ workflow = bf.BasicWorkflow(
 )
 
 
-val_data = simulator.sample(200, seed=23)
+val_data = simulator.sample(500, num_obs=620, seed=23)
 
 history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
 

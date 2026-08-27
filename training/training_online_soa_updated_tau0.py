@@ -48,8 +48,8 @@ network_name = "dmc_sdr_estimated_4afc_soa_settrans_updated_tau0_" + str(epochs)
 
 print(network_name, flush=True)
 
-model_specs = {"simulation_settings": {"prior_means": np.array([30.3, 273.28, 0.715, 454.37, 108, 33.54]),
-                                       "prior_sds": np.array([13.99 , 67.54, 0.25, 58.45, 23.33, 7.8]),
+model_specs = {"simulation_settings": {"prior_means": np.array([30.3, 273.28, 0.715, 454.37, 33.54, 108]),
+                                       "prior_sds": np.array([13.99 , 67.54, 0.25, 58.45, 7.8, 23.33]),
                                        "tmax": 2000,
                                        "contamination_probability": None,
                                        "soa": 166,
@@ -109,7 +109,7 @@ workflow = bf.BasicWorkflow(
 )
 
 
-val_data = simulator.sample(200, seed=23)
+val_data = simulator.sample(500, num_obs=620, seed=23)
 
 history = workflow.fit_online(epochs=epochs, num_batches_per_epoch=num_batches_per_epoch, batch_size=model_specs["batch_size"], validation_data=val_data)
 
