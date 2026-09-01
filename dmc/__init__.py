@@ -3,3 +3,4 @@ from .dmc_helpers import  compute_stats_ppc, hdi, resim_data, compute_gof, check
 from .dmc_simulator_soa import DMCsoa
 from .dmc_simulator_asym import DMCasym
 from .dmc_simulator_gamma_shape import DMCgamma
+from .dmc_simulator_full import DMCfull
