@@ -259,7 +259,8 @@ class DMCgamma:
 
         if self.a_gamma_shape is not None:
             a_idx = self.param_names.index('a')
-            p[a_idx] = 1.0 + rng.gamma(self.a_gamma_shape, self.a_gamma_scale)
+            a_lower = self.param_lower_bound[a_idx] if self.param_lower_bound is not None else 1.0
+            p[a_idx] = a_lower + rng.gamma(self.a_gamma_shape, self.a_gamma_scale)
 
         return dict(zip(self.param_names, p))
 
