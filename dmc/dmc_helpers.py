@@ -448,6 +448,7 @@ def post_samples_to_df(post_samples):
 
     return pd.concat(lst_samples)
 
+
 def resim_data_id(
     post_sample_data: Union[pd.DataFrame, Mapping[str, np.ndarray]],
     num_obs: int,
@@ -456,16 +457,16 @@ def resim_data_id(
     id_name: Union[str, int] = 'id',
     num_resims: int = 50,
     param_names: Sequence[str] = ("A", "tau", "mu_c", "mu_r", "b", "sd_r"),
-    lower_bound: float = 0
+    lower_bound: float = 0,
+    rng: np.random.Generator | None = None
 ) -> pd.DataFrame:
     """
     Resimulate trial-level data for one participant or observational unit from
     posterior parameter samples.
 
     This function takes posterior samples for a single unit, filters parameter
-    draws below a lower bound, randomly shuffles the remaining valid draws within
-    each parameter, and repeatedly calls ``simulator.experiment(...)`` to produce
-    posterior predictive datasets.
+    draws below a lower bound, randomly draws from the posterior and repeatedly 
+    calls ``simulator.experiment(...)`` to produce posterior predictive datasets.
 
     For each resimulation, one value per parameter is taken from the filtered
     sample arrays and passed to the simulator together with ``num_obs``. The
@@ -512,6 +513,9 @@ def resim_data_id(
         Lower bound for valid posterior samples. Values strictly below this bound
         are excluded before resimulation.
 
+    rng : np.random.Generator or None, optional
+        Random number generator used for sampling from the posterior and data simulation.
+
     Returns
     -------
     resim_complete : pandas.DataFrame
@@ -535,34 +539,39 @@ def resim_data_id(
       ``(resim_complete, n_excluded_samples, n_all_samples)``.
     """
 
-    # convert to dict (allow differing number of samples per parameter)
-    resim_samples = dict(post_sample_data)
+    rng = np.random.default_rng() if rng is None else rng
 
-    n_excluded_samples = 0
-    n_all_samples = 0
+    # exclude invalid samples
+    post = pd.DataFrame(post_sample_data)
+    present = [k for k in param_names if k in post.columns]
 
-    # exclude negative samples
-    for k, dat in resim_samples.items():
-        if k in param_names:
-            samples = dat.values[dat.values >= lower_bound]
-            np.random.shuffle(samples)
-            resim_samples[k] = samples
+    valid = (post[present] >= lower_bound).all(axis=1)
+    n_all_samples = len(post) * len(present)
+    n_excluded_samples = int((~valid).sum()) * len(present)
 
-            n_all_samples += dat.shape[0]
-            n_excluded_samples += dat.shape[0] - samples.shape[0]
+    post = post.loc[valid]
+
+    # check whether enough samples are left
+    if len(post) < num_resims:
+        raise ValueError(f"only {len(post)} valid draws for id {id}, need {num_resims}")
+
+    resim_samples = {k: post[k].values for k in present}
+
+    # draw random sample ids
+    idx = rng.choice(len(post), num_resims, replace=False)
 
     list_resim_dfs = []
 
     # resimulate
-    for i in range(num_resims):
+    for i, post_id in zip(idx, range(0, num_resims)):
 
         iteration_dict = {key: values[i] for key, values in resim_samples.items() if key in param_names}
 
-        resim =  simulator.experiment(**iteration_dict | {'num_obs': num_obs})
+        resim =  simulator.experiment(**iteration_dict | {'num_obs': num_obs}, rng=rng)
 
         resim_df = pd.DataFrame(resim)
         
-        resim_df["num_resim"] = i
+        resim_df["num_resim"] = post_id
         resim_df[id_name] = id
         
         list_resim_dfs.append(pd.DataFrame(resim_df))
@@ -583,7 +592,8 @@ def resim_data(empirical_data: pd.DataFrame,
                simulator_congruency_coding: float = 0.0,
                simulator_incongruency_coding: float = 1.0,
                exclude_nonconvergents: bool = True,
-               lower_bound: float = 0):
+               lower_bound: float = 0,
+               seed: int | None = None):
     
     """
     Perform posterior-predictive resimulations for each unit in an empirical dataset.
@@ -638,10 +648,13 @@ def resim_data(empirical_data: pd.DataFrame,
 
     exclude_nonconvergents: bool
         Indicates if nonconvergent trials (rt = -1) should be excluded. Default is `True`.
+    
+    seed : int or None, optional
+        seed for random number generator used for sampling from the posterior and data simulation.
 
     Returns
     -------
-    list[pandas.DataFrame]
+    pandas.DataFrame
         A list of per-identifier resimulated datasets. Each element is a
         trial-level DataFrame produced by `resim_data_id(...)`, filtered to remove
         `rt == -1` rows and augmented with a congruency label column
@@ -651,7 +664,7 @@ def resim_data(empirical_data: pd.DataFrame,
     -----------------------------------
     - `resim_data_id(...)` must be defined in the surrounding scope and accept
       arguments compatible with:
-        `resim_data_id(part_data_samples, num_obs, simulator, id, param_names=param_names)`
+        `resim_data_id(part_data_samples, num_obs, simulator, id, param_names=param_names, rng=rng)`
     - `param_names` must exist in the surrounding scope (global or closure).
     - The resimulated output is expected to contain columns:
         - `'rt'` (reaction time; used to filter non-convergents)
@@ -665,6 +678,15 @@ def resim_data(empirical_data: pd.DataFrame,
     - The congruency mapping assumes exactly two condition codes: 0.0 and 1.0.
       If your simulator uses different coding, adjust the mapping accordingly.
     """
+
+    rng = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
+
+    # check for missing parameter names
+    missing = [k for k in param_names if k not in post_samples.columns]
+
+    if missing:
+        raise KeyError(f"posterior samples are missing {missing}; "
+                    f"available: {list(post_samples.columns)}")
 
     check_vars(data=empirical_data, id_name=id_name, rt=rt, congruency=congruency)
 
@@ -689,14 +711,16 @@ def resim_data(empirical_data: pd.DataFrame,
                                                                                   num_resims=num_resims,
                                                                                   simulator=simulator,
                                                                                   id=id,
+                                                                                  id_name=id_name,
                                                                                   param_names=param_names,
-                                                                                  lower_bound=lower_bound)
+                                                                                  lower_bound=lower_bound,
+                                                                                  rng=rng)
 
         excluded_samples += n_excluded_samples_id 
         n_all_samples += n_all_samples_id
 
         if exclude_nonconvergents:
-            data_resimulated = data_resimulated[data_resimulated[rt] != -1]
+            data_resimulated = data_resimulated[data_resimulated[rt] != -1].copy()
 
         data_resimulated[congruency] = data_resimulated[simulator_congruency].map(
             {
