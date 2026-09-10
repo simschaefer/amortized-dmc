@@ -13,7 +13,10 @@ from dmc_helpers import resim_data
 
 
 class DummySimulator:
-    pass
+    """Mirrors the attributes a real simulator exposes, so resim_data can derive
+    param_names and lower bounds from it the way it does in production."""
+    param_names = ("A", "tau", "mu_c", "mu_r", "b", "sd_r")
+    param_lower_bound = 0
 
 
 @pytest.fixture
@@ -46,7 +49,7 @@ def post_samples():
 def test_resim_data_concatenates_results_and_recodes_congruency(monkeypatch, empirical_data, post_samples):
     calls = []
 
-    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50):
+    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50, **kwargs):
         calls.append(
             {
                 "id": id,
@@ -94,7 +97,7 @@ def test_resim_data_concatenates_results_and_recodes_congruency(monkeypatch, emp
 
 
 def test_resim_data_excludes_nonconvergents_by_default(monkeypatch, empirical_data, post_samples):
-    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50):
+    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50, **kwargs):
         return (
             pd.DataFrame(
                 {
@@ -128,7 +131,7 @@ def test_resim_data_excludes_nonconvergents_by_default(monkeypatch, empirical_da
 
 
 def test_resim_data_keeps_nonconvergents_when_requested(monkeypatch, empirical_data, post_samples):
-    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50):
+    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50, **kwargs):
         return (
             pd.DataFrame(
                 {
@@ -161,7 +164,7 @@ def test_resim_data_keeps_nonconvergents_when_requested(monkeypatch, empirical_d
 
 
 def test_resim_data_supports_custom_condition_coding(monkeypatch, empirical_data, post_samples):
-    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50):
+    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50, **kwargs):
         return (
             pd.DataFrame(
                 {
@@ -218,7 +221,7 @@ def test_resim_data_raises_when_required_empirical_column_is_missing(post_sample
 def test_resim_data_passes_param_names_and_lower_bound_to_resim_data_id(monkeypatch, empirical_data, post_samples):
     seen = []
 
-    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50):
+    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names, lower_bound, num_resims=50, **kwargs):
         seen.append(
             {
                 "id": id,
@@ -260,3 +263,36 @@ def test_resim_data_passes_param_names_and_lower_bound_to_resim_data_id(monkeypa
         {"id": "s1", "param_names": ("A", "tau"), "lower_bound": 0.25, "num_resims": 7},
         {"id": "s2", "param_names": ("A", "tau"), "lower_bound": 0.25, "num_resims": 7},
     ]
+
+def test_resim_data_derives_param_names_and_bounds_from_the_simulator(monkeypatch, empirical_data, post_samples):
+    """With neither given, both must come from the simulator, not a hardcoded default."""
+    seen = []
+
+    def fake_resim_data_id(post_sample_data, num_obs, simulator, id, param_names,
+                           lower_bound, num_resims=50, **kwargs):
+        seen.append({"param_names": tuple(param_names), "lower_bound": lower_bound})
+        return (
+            pd.DataFrame({"rt": [0.5], "accuracy": [1], "conditions": [0.0],
+                          "num_resim": [0], "id": [id]}),
+            0,
+            len(post_sample_data),
+        )
+
+    monkeypatch.setattr("dmc_helpers.resim_data_id", fake_resim_data_id)
+
+    simulator = DummySimulator()
+    simulator.param_lower_bound = (0, 1, 0, 0, 0, 0)
+
+    resim_data(
+        empirical_data=empirical_data,
+        post_samples=post_samples,
+        simulator=simulator,
+        num_resims=1,
+        rt="rt",
+        id_name="id",
+        congruency="congruency",
+        simulator_congruency="conditions",
+    )
+
+    assert all(s["param_names"] == DummySimulator.param_names for s in seen)
+    assert all(s["lower_bound"] is None for s in seen)   # passed through, resolved downstream

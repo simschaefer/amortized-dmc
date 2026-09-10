@@ -71,10 +71,11 @@ def test_resimulate_compute_stats_and_plot_ppc(monkeypatch, empirical_data, post
         num_obs,
         simulator,
         id,
+        rng,
         id_name="id",
         num_resims=50,
         param_names=("A", "tau", "mu_c", "mu_r", "b", "sd_r"),
-        lower_bound=0,
+        lower_bound=0
     ):
         part_samples = post_sample_data.reset_index(drop=True).copy()
 
