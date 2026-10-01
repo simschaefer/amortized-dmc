@@ -12,6 +12,7 @@ plots.zip
 plots_masterscript.sh
 plots_allmodels.sh
 .plots_masterscript.sh.swp
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

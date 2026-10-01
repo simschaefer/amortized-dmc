@@ -4,3 +4,4 @@ from .dmc_simulator_soa import DMCsoa
 from .dmc_simulator_asym import DMCasym
 from .dmc_simulator_gamma_shape import DMCgamma
 from .dmc_simulator_full import DMCfull
+from .dmc_simulator_neutral import DMCneutral
