@@ -43,7 +43,7 @@ from dmc import DMCneutral
 num_batches_per_epoch = 250
 
 #########
-network_name = "dmc_sdr_estimated_4afc_asym_settrans_" + str(epochs) + '_' + slurm_id
+network_name = "dmc_neutral_trials_A_neutral_estimated_" + str(epochs) + '_' + slurm_id
 #########
 
 print(network_name, flush=True)
@@ -146,3 +146,16 @@ os.makedirs(plots_dir, exist_ok=True)
 
 for k, i in figs.items():
     figs[k].savefig(plots_dir + '/' + network_name + '_' + k + '_posttraining.png')
+
+
+for trial_num in [200, 300, 350, 400, 450, 500, 600]:
+
+    val_data = simulator.sample(500, num_obs=trial_num, seed=23)
+
+    figs = workflow.plot_default_diagnostics(test_data=val_data, variable_names=param_labels(model_specs['simulation_settings']['param_names']), calibration_ecdf_kwargs={'difference': True})
+
+    plots_dir = parent_dir + '/bf_dmc/plots/diagnostics/' + network_name
+    os.makedirs(plots_dir, exist_ok=True)
+
+    for k, i in figs.items():
+        figs[k].savefig(plots_dir + '/' + network_name + '_' + k + str(trial_num) +'_posttraining.png')
