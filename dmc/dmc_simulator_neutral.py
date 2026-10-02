@@ -9,7 +9,7 @@ class DMCneutral:
         prior_sds: np.ndarray,
         param_names: tuple[str] = ('A_con', 'A_inc', 'tau', 'mu_c', 'mu_r', 'b', 'sd_r'),
         A_neutral: float | None = 0,
-        param_lower_bound: float | None = 0,
+        param_lower_bound: tuple[float] | float | None = 0,
         fixed_num_obs: int | None = 200,
         tmax: int = 1200,
         dt: float = 1.0,
@@ -236,7 +236,11 @@ class DMCneutral:
         rng = rng if rng is not None else self.rng
 
         if self.param_lower_bound is not None:
-            a = (self.param_lower_bound - self.prior_means) / self.prior_sds
+            if np.isscalar(self.param_lower_bound):
+                lower = np.full(len(self.param_names), self.param_lower_bound)
+            else:
+                lower = np.array(self.param_lower_bound)
+            a = (lower - self.prior_means) / self.prior_sds
             b = (np.inf - self.prior_means) / self.prior_sds
             p = truncnorm.rvs(a, b, loc=self.prior_means, scale=self.prior_sds, random_state=rng)
         else:
@@ -450,7 +454,7 @@ class DMCneutral:
         condition_mask = conditions == 1
 
         data[condition_mask, :] = self.trial(
-            A=A_inc, tau=tau, mu_c=mu_c, b=b, t=t, noise=noise[condition_mask], non_decision_ts=non_decision_ts[condition_mask], rng=rng
+            A=-A_inc, tau=tau, mu_c=mu_c, b=b, t=t, noise=noise[condition_mask], non_decision_ts=non_decision_ts[condition_mask], rng=rng
         )
 
         # simulate neutral trials
